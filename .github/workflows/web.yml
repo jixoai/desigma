@@ -2,11 +2,20 @@ name: Browser WASM
 
 on:
   push:
-    branches: [main]
+    branches: [main, browser-wasm]
   pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
 
 concurrency:
-  group: web-${{ github.ref }}
+  group: web-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,9 +25,23 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Read pinned build tools
+        id: versions
+        run: |
+          python3 - <<'PY'
+          import os, tomllib
+          from pathlib import Path
+          rust = tomllib.loads(Path('rust-toolchain.toml').read_text())['toolchain']['channel']
+          lock = tomllib.loads(Path('Cargo.lock').read_text())
+          bindings = next(p['version'] for p in lock['package'] if p['name'] == 'wasm-bindgen')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f'rust={rust}\nbindgen={bindings}\n')
+          PY
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.93.1"
+          toolchain: ${{ steps.versions.outputs.rust }}
           targets: wasm32-unknown-unknown
           components: clippy
       - uses: Swatinem/rust-cache@v2
@@ -26,7 +49,9 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            web/signaling/package-lock.json
       - name: Check browser Rust
         run: cargo clippy --locked -p desigma-app --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
       - name: Test browser adapters
@@ -35,11 +60,14 @@ jobs:
           npm test --prefix web
           npm ci --prefix web/signaling --ignore-scripts
           npm test --prefix web/signaling
+          python3 -m unittest discover -s scripts/tests -v
       - name: Install matching bindings and optimizer
         run: |
-          cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          cargo install wasm-bindgen-cli --version "$BINDGEN_VERSION" --locked
           sudo apt-get update
           sudo apt-get install -y binaryen
+        env:
+          BINDGEN_VERSION: ${{ steps.versions.outputs.bindgen }}
       - name: Build optimized static application
         run: python3 scripts/build-web.py
       - name: Check bundle budget

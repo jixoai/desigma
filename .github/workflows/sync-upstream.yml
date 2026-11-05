@@ -1,0 +1,137 @@
+name: Sync upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * 1"
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.repository == 'jixoai/desigma'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      state: ${{ steps.prepare.outputs.state }}
+      branch: ${{ steps.prepare.outputs.branch }}
+      revision: ${{ steps.prepare.outputs.revision }}
+      commit: ${{ steps.push.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: browser-wasm
+          fetch-depth: 0
+      - name: Configure merge identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Fast-forward the fork main mirror
+        run: python3 scripts/sync-upstream.py mirror-main
+      - name: Check for a sync already under review
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr list --repo jixoai/desigma --base browser-wasm --state open --json headRefName,url > "$RUNNER_TEMP/pending-sync.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          prs = json.loads((Path(os.environ['RUNNER_TEMP']) / 'pending-sync.json').read_text())
+          pending = [p for p in prs if p['headRefName'].startswith('sync/upstream-')]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f'found={str(bool(pending)).lower()}\n')
+          for pr in pending:
+              print('Continue the existing sync:', pr['url'])
+          PY
+      - name: Prepare the merge in an isolated worktree
+        if: steps.pending.outputs.found != 'true'
+        id: prepare
+        run: python3 scripts/sync-upstream.py prepare --worktree "$RUNNER_TEMP/desigma-upstream"
+      - name: Preserve conflicts for local reproduction
+        if: failure() && steps.prepare.outputs.state == 'conflicts'
+        env:
+          UPSTREAM_REVISION: ${{ steps.prepare.outputs.revision }}
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+          from pathlib import Path
+          worktree = Path(os.environ['RUNNER_TEMP']) / 'desigma-upstream'
+          files = subprocess.check_output(['git', '-C', str(worktree), 'diff', '--name-only', '--diff-filter=U'], text=True)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('### Upstream merge needs conflict resolution\n\n')
+              out.write('Upstream commit: ' + os.environ['UPSTREAM_REVISION'] + '\n\n')
+              out.write('Run `python3 scripts/sync-upstream.py prepare --worktree ../desigma-upstream` locally.\n\n')
+              out.write('The maintenance branch has not been changed.\n\n' + files)
+          PY
+          git -C "$RUNNER_TEMP/desigma-upstream" diff > "$RUNNER_TEMP/upstream-conflicts.patch"
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.prepare.outputs.state == 'conflicts'
+        with:
+          name: upstream-conflicts
+          path: ${{ runner.temp }}/upstream-conflicts.patch
+      - name: Push the sync branch without rewriting existing branches
+        if: steps.prepare.outputs.state == 'ready'
+        id: push
+        env:
+          SYNC_BRANCH: ${{ steps.prepare.outputs.branch }}
+        run: |
+          git -C "$RUNNER_TEMP/desigma-upstream" push origin "HEAD:refs/heads/$SYNC_BRANCH"
+          echo "commit=$(git -C "$RUNNER_TEMP/desigma-upstream" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  native:
+    needs: prepare
+    if: needs.prepare.outputs.state == 'ready'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+
+  browser:
+    needs: prepare
+    if: needs.prepare.outputs.state == 'ready'
+    uses: ./.github/workflows/web.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+
+  review:
+    needs: [prepare, native, browser]
+    if: always() && needs.prepare.outputs.state == 'ready' && needs.prepare.outputs.commit != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open a draft PR with validation results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_BRANCH: ${{ needs.prepare.outputs.branch }}
+          UPSTREAM_REVISION: ${{ needs.prepare.outputs.revision }}
+          CHECKED_COMMIT: ${{ needs.prepare.outputs.commit }}
+          NATIVE_RESULT: ${{ needs.native.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          e = os.environ
+          body = f"""Merge upstream `main` at `{e['UPSTREAM_REVISION']}` into the browser maintenance branch while retaining the WASM platform layer, browser adapters and WebMCP tools.
+
+          Validation of `{e['CHECKED_COMMIT']}` in [this workflow run](https://github.com/{e['GITHUB_REPOSITORY']}/actions/runs/{e['GITHUB_RUN_ID']}):
+
+          - Native CI: {e['NATIVE_RESULT']}
+          - Browser CI and optimized artifact: {e['BROWSER_RESULT']}
+
+          Run the real browser smoke, recovery and focused performance checks from `docs/upstream-sync.md` before merging. Resolve any failed checks first. Use **Create a merge commit** to preserve upstream ancestry. This PR is never merged automatically.
+          """
+          (Path(e['RUNNER_TEMP']) / 'sync-pr.md').write_text(body)
+          PY
+          gh pr create --repo jixoai/desigma --base browser-wasm --head "$SYNC_BRANCH" --draft \
+            --title "sync: upstream main at ${UPSTREAM_REVISION:0:12}" --body-file "$RUNNER_TEMP/sync-pr.md"

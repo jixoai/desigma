@@ -2,6 +2,8 @@
 
 The desktop editor now also compiles to a static browser application. Document editing, layout, text shaping, GPU/CPU rendering, import, export, history and agent operations run on the user's device. Serving the files needs no application server, account, native helper or loopback bridge.
 
+The `jixoai/desigma` fork maintains this work on `browser-wasm`, with `main` tracking the original project. See [upstream synchronization](upstream-sync.md) for the scheduled draft-PR workflow and local merge process.
+
 ## Build and run
 
 Use the pinned Rust toolchain from `rust-toolchain.toml`, Node 22+ for verification, Python 3.11+, Binaryen (`wasm-opt`), and the matching bindings CLI:

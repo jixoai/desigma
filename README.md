@@ -18,6 +18,8 @@
 
 <br>
 
+> **Browser fork:** `jixoai/desigma` maintains the WASM editor and 58 WebMCP tools on `browser-wasm`. [Run in your browser](docs/browser.md) · [Keep the fork updated with upstream](docs/upstream-sync.md). `main` stays an unmodified upstream mirror.
+
 <p align="center">
   <img src="docs/images/desigma-hero.png" alt="The desigma editor on the Marlow showcase file: four phone screens in a row (welcome, home dashboard, spending and a dark settings screen), the Home frame selected and the inspector showing its vertical auto layout" width="900">
   <br>

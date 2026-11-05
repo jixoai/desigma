@@ -1,0 +1,14 @@
+{
+  "fork": {
+    "repository": "jixoai/desigma",
+    "url": "https://github.com/jixoai/desigma.git",
+    "branch": "browser-wasm",
+    "mirror": "main"
+  },
+  "upstream": {
+    "repository": "deepfounder-ai/desigma",
+    "url": "https://github.com/deepfounder-ai/desigma.git",
+    "branch": "main",
+    "revision": "e0d5c3a598047eddf68b80aa3253457e61db5651"
+  }
+}

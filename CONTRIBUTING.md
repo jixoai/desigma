@@ -69,6 +69,10 @@ Use test documents and third-party assets whose licenses permit the intended use
 
 Dependencies flow downward: `app` depends on everything, `doc` depends on nothing in the workspace. Keep UI code out of the lower crates, and make document edits go through undoable `Command`s.
 
+## Browser fork maintenance
+
+In `jixoai/desigma`, base browser work on `browser-wasm`; `main` remains an unmodified upstream mirror. Read [the upstream synchronization guide](docs/upstream-sync.md) for branch policy, isolated merge worktrees, native/browser validation and conflict resolution. Browser runtime and WebMCP setup are in [browser.md](docs/browser.md). Keep engine behavior shared and browser integration in the platform and web adapters.
+
 ## Commit style
 
 - Short imperative subject, optionally prefixed with the area: `app: assets panel thumbnails`, `doc: variables with modes`, `render: cached shadows`.

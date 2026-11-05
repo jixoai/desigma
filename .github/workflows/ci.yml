@@ -2,11 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, browser-wasm]
   pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -24,6 +32,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-15]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Install Linux system libraries
         if: runner.os == 'Linux'
@@ -51,6 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Install Linux system libraries
         run: |
@@ -77,6 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - uses: dtolnay/rust-toolchain@master
         with:
