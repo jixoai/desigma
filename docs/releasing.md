@@ -1,62 +1,18 @@
-# Releasing
+# Distributing the WASM editor
 
-Releases are tag-driven. Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`.
+This fork distributes the browser application. The build output is `dist/`; there are no maintained desktop installers or desktop release workflows.
 
-## Checklist
+1. Start from a clean `browser-wasm` commit and pass `python3 scripts/sync-upstream.py check`.
+2. Serve and verify the real editor: WebGPU/WebGL, document edits and Undo, library/recovery, exports, WebMCP and collaboration as applicable. Keep the browser performance evidence and known limitations current.
+3. Use the `desigma-browser` artifact from [WASM CI](https://github.com/jixoai/desigma/actions/workflows/web.yml), or run `python3 scripts/build-web.py` locally. Preserve `dist/build.json` alongside the assets.
+4. Serve the complete directory over HTTPS with `application/wasm` for `.wasm` and correct content encoding for compressed responses. See [browser hosting](browser.md#build-and-run). The repository does not publish a site automatically.
 
-1. Make sure `main` is green (tests on Linux, Windows and macOS, Clippy).
-2. Optionally bump `version` under `[workspace.package]` in the root `Cargo.toml`, run `cargo build --workspace` so `Cargo.lock` updates, and commit both (`release: 0.2.0`). The app's own version comes from the tag either way: the workflow compiles it in as `DESIGMA_VERSION` (About, `desigma --version`, update checks) and fails if `--version` disagrees.
-3. Tag and push:
-
-   ```sh
-   git tag -a v0.2.0 -m "desigma 0.2.0"
-   git push origin v0.2.0
-   ```
-
-   A tag containing a hyphen (`v0.2.0-rc.1`) is published as a pre-release.
-4. Watch the Release workflow. When all builds pass, a GitHub Release is created with auto-generated notes. Edit the notes if needed.
-
-## What gets built
-
-| Job | Runner | Output |
-|---|---|---|
-| `build` `x86_64-pc-windows-msvc` | `windows-latest` | `desigma-<version>-<target>.zip` (the exe has the icon and version info embedded by `crates/desigma-app/build.rs`) |
-| `build` `x86_64-unknown-linux-gnu` | `ubuntu-latest` | `desigma-<version>-<target>.tar.gz` (adds `desigma.desktop`, `icons/`, `install.sh`) |
-| `macos` | `macos-14` (builds `aarch64-apple-darwin` and cross-compiles `x86_64-apple-darwin`; `macos-13` is retired) | `desigma-<version>-macos.dmg` and `desigma-<version>-macos-universal.tar.gz` |
-
-The Windows and Linux archives hold `desigma`, `desigma-diff`, `LICENSE-MIT`, `LICENSE-APACHE` and `README.md`. They are packaged by `scripts/package.sh <target> <version>`, which you can run locally after a release build.
-
-The macOS job runs `scripts/package-macos.sh <version>`. It `lipo`s a universal `desigma` and `desigma-diff`, assembles `desigma.app` (bundle id `ai.deepfounder.desigma`, `Info.plist` from `packaging/macos/Info.plist.in`, `desigma.icns` built with `iconutil` from `assets/icon/desigma.iconset`), ad-hoc signs it, and writes the `.dmg` (app, `Applications` link, `Read me first.txt`) and the universal `.tar.gz` (app, licenses, README). It needs a Mac, so test changes to it with a dry run (below).
-
-The release carries a combined `SHA256SUMS` covering every file (verify with `sha256sum -c SHA256SUMS`).
-
-## App icons
-
-The masters are `assets/icon/desigma-icon.svg` (full bleed, Windows and Linux) and `assets/icon/desigma-icon-macos.svg` (824 px tile on a 1024 canvas). All generated files are committed; regenerate them after editing a master with:
+To package a local build without OS-specific installer tools:
 
 ```sh
-cargo run -p desigma-app --example gen_icons
+python3 -c "import shutil; shutil.make_archive('desigma-browser', 'zip', 'dist')"
 ```
 
-This rewrites `assets/icon/png/`, `desigma.ico`, `desigma.iconset/` and `desigma.icns`. The window icon is the embedded 256 px PNG.
+Do not commit the archive or `dist/`. The optional WebRTC signaling service has its own [deployment guide](../web/signaling/README.md); deploying the static editor does not deploy that service.
 
-## Dry run
-
-Run the workflow from the Actions tab (Release, Run workflow) on any branch. It builds and packages everything and uploads the archives as workflow artifacts, but creates no release. Run it after any change to `scripts/package-macos.sh` or the macOS plist, then open the downloaded `.dmg` on a Mac to check the icon, the drag-to-Applications layout and the Open Anyway flow. The version is stamped `0.0.0-dev.<sha>`.
-
-## Update notifications
-
-Release builds compare their stamped version with GitHub's release list (`/repos/deepfounder-ai/desigma/releases`; pre-releases are offered only to pre-release builds) and show a banner when a newer one is out. To preview the banner and dialog offline, stamp a build and point `DESIGMA_UPDATE_URL` at a file (or an `http://127.0.0.1` URL) in GitHub's release-list shape with a newer tag:
-
-```sh
-DESIGMA_VERSION=0.1.0-alpha.7 cargo build -p desigma-app
-DESIGMA_UPDATE_URL=releases.json target/debug/desigma --fixture showcase --panel updater --screenshot update.png
-```
-
-`--panel updater-banner` shows the banner instead of the dialog.
-
-## Not covered yet
-
-- macOS: the app is ad-hoc signed but not signed with a Developer ID or notarized, so Gatekeeper asks for a one-time Open Anyway. Double-clicking a file in Finder does not pass it to desigma (winit 0.30 does not expose `application:openFiles:`); "Open With" lists desigma through `CFBundleDocumentTypes`.
-- Windows binaries are unsigned (SmartScreen warning). There is no installer; the zip is the download.
-- Linux binaries link the build runner's glibc; they run on that distribution or newer.
+Historical upstream desktop packaging scripts may remain in the source tree for synchronization. Desktop releases belong to [the original project](https://github.com/deepfounder-ai/desigma/releases) and are not tested, packaged or published by this fork.

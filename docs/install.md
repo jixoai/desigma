@@ -1,3 +1,5 @@
+> **Upstream desktop reference:** This inherited document describes the original desktop application. The `jixoai/desigma` fork maintains only WASM. Use [browser.md](browser.md) to build and run this fork.
+
 # Installing desigma
 
 Download the file for your platform from the

@@ -1,6 +1,6 @@
 # Browser editor (WebAssembly)
 
-The desktop editor now also compiles to a static browser application. Document editing, layout, text shaping, GPU/CPU rendering, import, export, history and agent operations run on the user's device. Serving the files needs no application server, account, native helper or loopback bridge.
+This fork maintains Desigma as a static WebAssembly browser application using the original shared Rust engines. Document editing, layout, text shaping, GPU/CPU rendering, import, export, history and agent operations run on the user's device. Serving the files needs no application server, account, native helper or loopback bridge.
 
 The `jixoai/desigma` fork maintains this work on `browser-wasm`, with `main` tracking the original project. See [upstream synchronization](upstream-sync.md) for the scheduled draft-PR workflow and local merge process.
 
@@ -118,10 +118,11 @@ Native OS operations have browser equivalents where appropriate: clipboard APIs,
 npm ci --prefix web --ignore-scripts
 npm test --prefix web
 cargo clippy --locked -p desigma-app --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
-cargo test --workspace --locked
+python3 scripts/sync-upstream.py scope
+python3 -m unittest discover -s scripts/tests -v
 cargo fmt --all --check
 ```
 
-`.github/workflows/web.yml` checks the WASM target, browser adapters, build artifact and a 12MiB gzip budget. Existing native CI remains enabled. The browser smoke script exercises real native WebMCP where supported, Undo/Redo, atomic failures, exports and persistent projects. Local verification results are recorded in `browser-validation.json`.
+`.github/workflows/web.yml` checks the WASM target, browser adapters, build artifact and a 12MiB gzip budget. Desktop CI and desktop releases are disabled; the maintained target is `wasm32-unknown-unknown`. The browser smoke script exercises real native WebMCP where supported, Undo/Redo, atomic failures, exports and persistent projects. Local verification results are recorded in `browser-validation.json`.
 
 WebMCP API reference: <https://webmachinelearning.github.io/webmcp/> (draft checked 2026-11-05).

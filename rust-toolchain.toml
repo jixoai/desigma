@@ -1,6 +1,7 @@
 # Pinned so local builds and CI use the same compiler and lints.
-# Bump deliberately: update this file and RUST_VERSION in .github/workflows/*.yml together.
+# The WASM workflow reads this version directly; update it deliberately with Cargo.lock.
 [toolchain]
 channel = "1.93.1"
+targets = ["wasm32-unknown-unknown"]
 components = ["clippy", "rustfmt"]
 profile = "minimal"

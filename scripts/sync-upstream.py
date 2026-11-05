@@ -144,11 +144,21 @@ def mirror(root, config):
     return {'state': 'mirrored', 'revision': source}
 
 
+def scope(root):
+    config = load(root)
+    maintenance = config.get('maintenance', {})
+    if maintenance.get('target') != 'wasm32-unknown-unknown':
+        raise RuntimeError('This fork maintains only the wasm32-unknown-unknown target.')
+    excluded = set(maintenance.get('excluded_workflows', [])) | {'.github/workflows/ci.yml', '.github/workflows/release.yml'}
+    restored = [path for path in sorted(excluded) if (root / path).exists()]
+    if restored:
+        raise RuntimeError('Upstream restored desktop automation outside this fork’s maintenance scope: ' + ', '.join(restored))
+
+
 def check(root):
+    scope(root)
     commands = [
         ['cargo', 'fmt', '--all', '--check'],
-        ['cargo', 'test', '--workspace', '--locked'],
-        ['cargo', 'clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings'],
         ['cargo', 'clippy', '--locked', '-p', 'desigma-app', '--lib', '--target', 'wasm32-unknown-unknown', '--no-default-features', '--', '-D', 'warnings'],
         ['npm', 'ci', '--prefix', 'web', '--ignore-scripts'], ['npm', 'test', '--prefix', 'web'],
         ['npm', 'ci', '--prefix', 'web/signaling', '--ignore-scripts'], ['npm', 'test', '--prefix', 'web/signaling'],
@@ -172,7 +182,8 @@ def main():
     finish = sub.add_parser('record', help='Record provenance after manually resolving and committing a conflicted merge')
     finish.add_argument('--revision', required=True)
     sub.add_parser('mirror-main', help='Fetch and fast-forward ONLY the fork main mirror; never force pushes')
-    sub.add_parser('check', help='Run native/browser validation and the optimized build in this checkout')
+    sub.add_parser('scope', help='Reject reintroduced desktop automation in this WASM-only fork')
+    sub.add_parser('check', help='Run WASM/browser validation and the optimized static build in this checkout')
     args = parser.parse_args()
     root = args.root.resolve()
     config = load(root)
@@ -187,6 +198,9 @@ def main():
         result = {'state': 'recorded', 'revision': args.revision}
     elif args.command == 'mirror-main':
         result = mirror(root, config)
+    elif args.command == 'scope':
+        scope(root)
+        result = {'state': 'wasm-only'}
     else:
         check(root)
         result = {'state': 'validated'}

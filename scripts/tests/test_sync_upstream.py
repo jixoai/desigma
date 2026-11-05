@@ -33,6 +33,7 @@ class SyncTests(unittest.TestCase):
         self.config = {
             'fork': {'url': str(self.fork), 'branch': 'browser-wasm', 'mirror': 'main'},
             'upstream': {'url': str(self.upstream), 'branch': 'main', 'revision': self.base},
+            'maintenance': {'target': 'wasm32-unknown-unknown', 'excluded_workflows': []},
         }
         self.commit(self.client, '.github/upstream.json', json.dumps(self.config))
         self.commit(self.client, 'web/browser.js', 'browser implementation\n')
@@ -141,6 +142,23 @@ class SyncTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'already exists'):
             sync.prepare(self.client, self.config, self.destination)
         self.assertFalse(self.destination.exists())
+
+    def test_scope_blocks_upstream_reintroducing_desktop_workflows(self):
+        sync.scope(self.client)
+        self.commit(self.client, '.github/workflows/ci.yml', 'name: Desktop CI\n')
+        with self.assertRaisesRegex(RuntimeError, 'desktop automation'):
+            sync.scope(self.client)
+        (self.client / '.github/workflows/ci.yml').unlink()
+        self.commit(self.client, '.github/workflows/release.yml', 'name: Desktop Release\n')
+        with self.assertRaisesRegex(RuntimeError, 'desktop automation'):
+            sync.scope(self.client)
+
+    def test_scope_requires_the_wasm_target(self):
+        config = sync.load(self.client)
+        config['maintenance']['target'] = 'x86_64-unknown-linux-gnu'
+        (self.client / sync.CONFIG).write_text(json.dumps(config))
+        with self.assertRaisesRegex(RuntimeError, 'only the wasm32'):
+            sync.scope(self.client)
 
 
 if __name__ == '__main__':

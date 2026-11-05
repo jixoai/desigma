@@ -1,84 +1,50 @@
-# Contributing to desigma
+# Contributing to the WASM editor
 
-Thanks for helping. desigma is an independent, local-first design editor built in Rust. The goals are faithful document rendering, Figma file compatibility and a fast editing experience with a small, readable codebase.
-
-Develop Desigma's own visual hierarchy, panels, controls and icons. Familiar design-tool workflows and shortcuts are useful, but reproducing Figma's editor appearance is not an acceptance criterion. Document rendering fidelity and editor UI design have separate reference targets.
+This fork maintains the browser application on `browser-wasm`. Use [deepfounder-ai/desigma](https://github.com/deepfounder-ai/desigma) for desktop development and distributions. Shared upstream Rust sources remain in this tree to keep browser updates manageable; desktop compatibility, installers and releases are outside this fork's support scope.
 
 ## Build and run
 
-You need a recent stable Rust toolchain. On Linux install the windowing headers first:
+Use the pinned Rust toolchain and WASM target from `rust-toolchain.toml`, Node 22+, Python 3.11+, Binaryen, and the wasm-bindgen CLI matching `Cargo.lock`.
 
 ```sh
-sudo apt-get install -y pkg-config libxkbcommon-dev libwayland-dev libx11-dev \
-  libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev
+python3 scripts/build-web.py
+python3 scripts/serve-web.py --port 8080
 ```
+
+Open <http://127.0.0.1:8080/?dev=1>. See [browser.md](docs/browser.md) for tool installation, fixtures, WebMCP and optional signaling. No native windowing SDK is needed to build the WASM application.
+
+## Validate changes
 
 ```sh
-cargo run --release -p desigma-app               # editor with the demo document
-cargo run --release -p desigma-app -- file.fig   # open a Figma file
+python3 scripts/sync-upstream.py scope
+cargo fmt --all --check
+cargo clippy --locked -p desigma-app --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
+npm ci --prefix web --ignore-scripts
+npm test --prefix web
+npm ci --prefix web/signaling --ignore-scripts
+npm test --prefix web/signaling
+python3 -m unittest discover -s scripts/tests -v
+python3 scripts/build-web.py
 ```
 
-Dev builds compile dependencies with `opt-level = 2` (see the root `Cargo.toml`), so `cargo run -p desigma-app` is usable too.
+`python3 scripts/sync-upstream.py check` runs the same local validation and optimized build. The browser workflow checks the WASM build, browser adapters, sync behavior, maintenance scope and compressed bundle budget. It uploads the complete static application as `desigma-browser`.
 
-## Test and lint
+For behavior changes, run the browser smoke and relevant recovery/storage/benchmark scripts in an isolated editor tab. Verify WebGPU and WebGL fallback when rendering changes, and keep the canvas focused throughout frame measurements. Check real browser interactions and document recovery before approving upstream sync PRs. The current browser scripts and examples are documented in [browser.md](docs/browser.md#checks).
 
-CI runs these on Linux, Windows and macOS; run them before opening a PR:
+## Code boundaries
 
-```sh
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings   # must be warning-free
-cargo fmt --all --check                                  # advisory for now, see below
-```
+Keep document, editing, layout, rendering and import/export behavior in the existing shared Rust engines. Edits must use transactions and the Undo stack. Browser-specific storage, networking, dialogs, plugins and task scheduling belong in `desigma-platform`, `desigma-app/src/web/` and `web/`.
 
-Clippy is blocking. If a lint is genuinely wrong for a spot (for example `too_many_arguments` on a renderer internal), add a narrowly scoped `#[allow(...)]` with a one-line reason instead of restructuring.
+Use `desigma_platform::fs`, `PathExt` and `web_time` in browser-reachable code. Gate inherited native libraries by target. Keep MCP schema changes compatible with the shared catalog and browser dispatcher. Do not introduce a second document model or a reduced editor just for the browser.
 
-Rustfmt settings live in `rustfmt.toml`. The tree was written before it, so `cargo fmt --check` still reports differences and the CI fmt job is non-blocking. Format only the files you are already changing, and avoid drive-by reformatting so diffs stay reviewable.
+Format the files you change, keep rendering deterministic, and add behavior tests for consequential changes. Preserve the licenses and attribution of test documents and assets; do not commit private design files or generated build output.
 
-## Screenshots and pixel diffs
+## Upstream updates and commits
 
-The app renders one frame headlessly, which is how UI changes are checked:
+Use feature branches based on `browser-wasm`. `main` is only an upstream mirror. Read [upstream-sync.md](docs/upstream-sync.md) before merging upstream, especially changes to the original entry point, platform calls or dependency locks.
 
-```sh
-desigma --screenshot out.png --size 1600x1000 --select Card
-desigma --tab prototype --present --screenshot present.png
-```
+Keep commit subjects short and concrete. Preserve upstream ancestry with merge commits for synchronization PRs. Never force-push the published maintenance branch. Keep `Cargo.lock` and npm lock files committed; update adapters and tests alongside schema or storage changes.
 
-Compare against a reference with the `desigma-diff` CLI (exit code 1 when the mismatch exceeds the threshold, 2 on errors):
+## Distribution
 
-```sh
-desigma-diff compare reference.png out.png --out diff.png --tolerance 2 --threshold 0.001
-desigma-diff suite path/to/manifest.json          # run many cases, writes an HTML report
-```
-
-Anti-aliased edge pixels are forgiven by default (`--no-aa` turns that off). Use `--ignore x,y,w,h` to mask regions such as a clock or cursor. For document fidelity, compare canvas-only output from permitted test documents at matching zoom, dimensions and font settings; record any expected rendering differences. For editor changes, use approved Desigma screenshots as the regression baseline. Historical captures of Figma's own UI under `reference/screens/` are local-only and git-ignored; do not commit them or use them as an editor acceptance target. Screenshots for the README go in `docs/images/`.
-
-Use test documents and third-party assets whose licenses permit the intended use and distribution, and preserve required attribution. Independent implementation and visual differences do not establish legal clearance.
-
-## Crate map
-
-| Crate | Role |
-|---|---|
-| `desigma-doc` | Scene graph, paints, text, auto layout, components, variables, prototype model, undo/redo. Pure data, no UI. |
-| `desigma-render` | Deterministic CPU renderer (tiny-skia), spatial index, tile cache. |
-| `desigma-fig` | Figma REST JSON and `.fig` import, REST JSON export. |
-| `desigma-pen` | Pencil `.pen` import. |
-| `desigma-fonts` | Bundled Inter, Fontsource fetch and cache, font substitution. |
-| `desigma-export` | PNG, JPG, SVG export and Dev mode CSS. |
-| `desigma-app` | The egui desktop editor (binary `desigma`). |
-| `desigma-diff` | Pixel-diff library and the `desigma-diff` CLI. |
-
-Dependencies flow downward: `app` depends on everything, `doc` depends on nothing in the workspace. Keep UI code out of the lower crates, and make document edits go through undoable `Command`s.
-
-## Browser fork maintenance
-
-In `jixoai/desigma`, base browser work on `browser-wasm`; `main` remains an unmodified upstream mirror. Read [the upstream synchronization guide](docs/upstream-sync.md) for branch policy, isolated merge worktrees, native/browser validation and conflict resolution. Browser runtime and WebMCP setup are in [browser.md](docs/browser.md). Keep engine behavior shared and browser integration in the platform and web adapters.
-
-## Commit style
-
-- Short imperative subject, optionally prefixed with the area: `app: assets panel thumbnails`, `doc: variables with modes`, `render: cached shadows`.
-- Explain the why in the body when it is not obvious. Keep commits logically separate (a lint pass, a feature and a docs change are three commits).
-- Add or update tests with behaviour changes. Rendering changes should keep the output deterministic.
-
-## Cutting a release
-
-Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. See [docs/releasing.md](docs/releasing.md) for the checklist.
+The maintained output is `dist/`, served as a static HTTPS application. Successful WASM CI runs upload that directory. See [browser distribution](docs/releasing.md) for validation and packaging. This fork has no desktop release workflow.

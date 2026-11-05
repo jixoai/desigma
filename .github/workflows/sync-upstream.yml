@@ -86,13 +86,6 @@ jobs:
           git -C "$RUNNER_TEMP/desigma-upstream" push origin "HEAD:refs/heads/$SYNC_BRANCH"
           echo "commit=$(git -C "$RUNNER_TEMP/desigma-upstream" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  native:
-    needs: prepare
-    if: needs.prepare.outputs.state == 'ready'
-    uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ needs.prepare.outputs.commit }}
-
   browser:
     needs: prepare
     if: needs.prepare.outputs.state == 'ready'
@@ -101,7 +94,7 @@ jobs:
       ref: ${{ needs.prepare.outputs.commit }}
 
   review:
-    needs: [prepare, native, browser]
+    needs: [prepare, browser]
     if: always() && needs.prepare.outputs.state == 'ready' && needs.prepare.outputs.commit != ''
     runs-on: ubuntu-latest
     permissions:
@@ -115,7 +108,6 @@ jobs:
           SYNC_BRANCH: ${{ needs.prepare.outputs.branch }}
           UPSTREAM_REVISION: ${{ needs.prepare.outputs.revision }}
           CHECKED_COMMIT: ${{ needs.prepare.outputs.commit }}
-          NATIVE_RESULT: ${{ needs.native.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
         run: |
           python3 - <<'PY'
@@ -126,7 +118,6 @@ jobs:
 
           Validation of `{e['CHECKED_COMMIT']}` in [this workflow run](https://github.com/{e['GITHUB_REPOSITORY']}/actions/runs/{e['GITHUB_RUN_ID']}):
 
-          - Native CI: {e['NATIVE_RESULT']}
           - Browser CI and optimized artifact: {e['BROWSER_RESULT']}
 
           Run the real browser smoke, recovery and focused performance checks from `docs/upstream-sync.md` before merging. Resolve any failed checks first. Use **Create a merge commit** to preserve upstream ancestry. This PR is never merged automatically.
