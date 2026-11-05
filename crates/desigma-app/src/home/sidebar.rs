@@ -20,7 +20,7 @@ pub fn show(h: &mut Home, ui: &mut Ui, rect: Rect, acts: &mut Vec<Act>) {
 
     // ---- brand
     icons::paint(&p, Icon::Logo, Pos2::new(x0 + 28.0, y + 28.0), 24.0, theme::ICON);
-    p.text(Pos2::new(x0 + 48.0, y + 28.0), Align2::LEFT_CENTER, "desigma", theme::font_large_strong(), theme::TEXT);
+    p.text(Pos2::new(x0 + 48.0, y + 28.0), Align2::LEFT_CENTER, theme::APP_TITLE, theme::font_body_strong(), theme::TEXT);
     y += 56.0;
 
     // ---- search
@@ -141,9 +141,9 @@ pub fn show(h: &mut Home, ui: &mut Ui, rect: Rect, acts: &mut Vec<Act>) {
         h.menu = secondary;
     }
 
-    // ---- Claude, then trash
+    // ---- Agent tools, then trash
     let cr = Rect::from_min_size(Pos2::new(x0 + 8.0, rect.bottom() - footer_h + 4.0), Vec2::new(w - 16.0, ROW_H));
-    if row(ui, cr, Id::new("home-claude"), Icon::Link, "Claude", 0.0, false, false, "home-claude").clicked() {
+    if row(ui, cr, Id::new("home-claude"), Icon::Link, "WebMCP", 0.0, false, false, "home-claude").clicked() {
         acts.push(Act::Mcp);
     }
     widgets::hline(&p, x0, x0 + w, rect.bottom() - trash_h, theme::BORDER);

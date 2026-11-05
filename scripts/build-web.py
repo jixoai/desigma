@@ -47,6 +47,15 @@ def main():
     dist.mkdir(exist_ok=True)
     for path in (ROOT/'web').iterdir():
         if path.suffix in {'.js','.css','.html','.png','.webmanifest'} or path.name == '_headers': shutil.copy2(path, dist/path.name)
+    # Ship the maintained plugin package and attribution with the editor for offline use.
+    if (dist/'plugins').exists(): shutil.rmtree(dist/'plugins')
+    shutil.copytree(ROOT/'plugins/shapes', dist/'plugins/shapes')
+    if (dist/'licenses').exists(): shutil.rmtree(dist/'licenses')
+    (dist/'licenses').mkdir()
+    for name in ['LICENSE-MIT', 'LICENSE-APACHE', 'THIRD_PARTY_NOTICES.md', 'FORK.md']:
+        shutil.copy2(ROOT/name, dist/'licenses'/name)
+    shutil.copy2(ROOT/'crates/desigma-fonts/assets/inter/OFL.txt', dist/'licenses/Inter-OFL.txt')
+    shutil.copy2(ROOT/'crates/desigma-app/assets/icons/lucide/LICENSE', dist/'licenses/Lucide-LICENSE')
     (dist/'tests').mkdir(exist_ok=True)
     for path in (ROOT/'web/tests').glob('browser-*.js'): shutil.copy2(path,dist/'tests'/path.name)
     if not args.assets_only:

@@ -24,6 +24,6 @@ if __name__ == '__main__':
     if not Path(args.dir, 'pkg', 'desigma_app_bg.wasm').is_file():
         parser.error('Build first with python3 scripts/build-web.py')
     server = ThreadingHTTPServer((args.host, args.port), functools.partial(Handler, directory=args.dir))
-    print(f'Desigma: http://{args.host}:{args.port}', flush=True)
+    print(f'FDE2E Desigma: http://{args.host}:{args.port}', flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: server.server_close()

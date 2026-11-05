@@ -13,7 +13,8 @@ use url::Url;
 use web_time::Duration;
 use web_time::{SystemTime, UNIX_EPOCH};
 
-const REPOSITORY: &str = "deepfounder-ai/desigma-plugins";
+const REPOSITORY: &str = "jixoai/desigma";
+pub const DEFAULT_MANIFEST_URL: &str = "https://github.com/jixoai/desigma/blob/browser-wasm/plugins/shapes/manifest.json";
 const MAX_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TOTAL_BYTES: usize = 8 * 1024 * 1024;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -70,7 +71,7 @@ struct Manifest {
     network: Vec<String>,
 }
 
-/// Canonical raw manifest URL. This intentionally accepts only the native registry.
+/// Canonical raw manifest URL. This intentionally accepts only the FDE2E repository registry.
 pub fn validate_url(input: &str) -> Result<String, String> {
     let url = Url::parse(input.trim()).map_err(|_| "Paste a valid HTTPS plugin manifest URL.".to_string())?;
     if url.scheme() != "https"
@@ -90,10 +91,10 @@ pub fn validate_url(input: &str) -> Result<String, String> {
     let native = match url.host_str() {
         Some("github.com") if parts.len() == 7 && parts[2] == "blob" => vec![parts[0], parts[1], parts[3], parts[4], parts[5], parts[6]],
         Some("raw.githubusercontent.com") if parts.len() == 6 => parts,
-        _ => return Err(format!("Install a native manifest from https://github.com/{REPOSITORY}. Figma Community plugins are not supported.")),
+        _ => return Err(format!("Install an FDE2E plugin manifest from https://github.com/{REPOSITORY}. Figma Community plugins are not supported.")),
     };
-    if native[0] != "deepfounder-ai"
-        || native[1] != "desigma-plugins"
+    if native[0] != "jixoai"
+        || native[1] != "desigma"
         || native[3] != "plugins"
         || native[5] != "manifest.json"
         || !safe_part(native[2])
@@ -460,7 +461,7 @@ pub fn install(root: &Path, input: &str) -> Result<InstalledPlugin, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const URL: &str = "https://github.com/deepfounder-ai/desigma-plugins/blob/main/plugins/hello/manifest.json";
+    const URL: &str = "https://github.com/jixoai/desigma/blob/main/plugins/hello/manifest.json";
     fn manifest() -> Vec<u8> {
         br#"{"schema_version":1,"id":"hello","name":"Hello","version":"1.0.0","license":"MIT","main":"dist/main.js","permissions":[]}"#.to_vec()
     }
@@ -470,14 +471,14 @@ mod tests {
     #[test]
     fn only_native_repository_manifests_are_accepted() {
         let raw = validate_url(URL).unwrap();
-        assert_eq!(raw, "https://raw.githubusercontent.com/deepfounder-ai/desigma-plugins/main/plugins/hello/manifest.json");
+        assert_eq!(raw, "https://raw.githubusercontent.com/jixoai/desigma/main/plugins/hello/manifest.json");
         assert_eq!(validate_url(&raw).unwrap(), raw);
         for bad in [
             "https://www.figma.com/community/plugin/735098390272716381/iconify",
             "https://github.com/other/desigma-plugins/blob/main/plugins/hello/manifest.json",
-            "https://raw.githubusercontent.com/deepfounder-ai/desigma-plugins/main/plugins/../manifest.json",
-            "https://raw.githubusercontent.com/deepfounder-ai/desigma-plugins/main/plugins/%2e%2e/manifest.json",
-            "https://user@github.com/deepfounder-ai/desigma-plugins/blob/main/plugins/hello/manifest.json",
+            "https://raw.githubusercontent.com/jixoai/desigma/main/plugins/../manifest.json",
+            "https://raw.githubusercontent.com/jixoai/desigma/main/plugins/%2e%2e/manifest.json",
+            "https://user@github.com/jixoai/desigma/blob/main/plugins/hello/manifest.json",
         ] {
             assert!(validate_url(bad).is_err(), "{bad}");
         }
@@ -653,13 +654,13 @@ mod tests {
     #[ignore = "Needs network access to the public plugin registry"]
     fn real_registry_install() {
         let root = root();
-        let url = "https://github.com/deepfounder-ai/desigma-plugins/blob/main/plugins/install-demo/manifest.json";
-        let plugin = install(&root, url).expect("Install the published native sample");
+        let url = DEFAULT_MANIFEST_URL;
+        let plugin = install(&root, url).expect("Install the published FDE2E Shapes bundle");
         let reloaded = list(&root).unwrap();
         assert_eq!(reloaded.len(), 1);
         assert_eq!(reloaded[0].id, plugin.id);
         assert_eq!(reloaded[0].version, plugin.version);
-        assert!(!reloaded[0].runtime_supported);
+        assert!(reloaded[0].runtime_supported);
         assert!(install(&root, url).unwrap_err().contains("already installed"));
         fs::remove_dir_all(root).unwrap();
     }

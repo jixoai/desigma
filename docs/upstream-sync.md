@@ -14,7 +14,7 @@ This fork maintains only the WASM browser editor, reusing upstream’s document,
 
 Keep feature work on branches based on `browser-wasm`. Never force-push, rebase or squash the published maintenance history. **Merge upstream sync PRs using Create a merge commit**: a squash loses the ancestry Git needs for the next update. Ordinary independent feature PRs may be squashed.
 
-The supported setup is in [browser.md](browser.md), and distribution is described in [releasing.md](releasing.md). Inherited desktop instructions are upstream references only. Desktop CI and Release are disabled at the GitHub repository level as well as removed from the maintenance branch; this also prevents the unmodified `main` mirror from starting desktop builds. This repository does not publish a site or deploy the optional signaling service automatically.
+The supported setup is in [browser.md](browser.md), and distribution is described in [releasing.md](releasing.md). Desktop CI and Release are disabled at the GitHub repository level as well as removed from the maintenance branch; this also prevents the unmodified `main` mirror from starting desktop builds. This repository does not publish a site or deploy the optional signaling service automatically.
 
 For a fresh clone:
 
@@ -106,3 +106,9 @@ Keep `Cargo.lock` and both npm lock files committed. Resolve a dependency merge 
 Resolve modify/delete conflicts on `.github/workflows/ci.yml` and `release.yml` by keeping the fork’s deletion. Do not re-enable these desktop workflows when mirroring upstream. Review any newly introduced workflow for the same WASM-only scope.
 
 Treat changes to shared MCP schemas, document serialization, export signatures, collaboration permissions and storage formats as compatibility changes. Update the adapter and behavior tests in the same PR. Storage migrations must preserve pending bytes and existing documents. Keep generated `dist/`, native build outputs and `node_modules` out of Git; publish CI artifacts with their build metadata instead.
+
+## Brand preservation
+
+The product is **FDE2E Desigma**. `python3 scripts/check-branding.py` checks the public application, documentation, package metadata and removed distribution materials. Browser CI and `sync-upstream.py check` run it for every update. Preserve the new icon, project links, `jixoai/desigma` plugin registry and Chinese README when resolving upstream conflicts. Icon digests are tracked in `.github/branding.json`; update them only for an intentional FDE2E artwork change. Keep provenance and original licenses in the files listed by [FORK.md](../FORK.md); API identifiers and user documents retain compatibility.
+
+The check flags removed marketing/screenshots/installer paths if a merge restores them. It also verifies the active title and icon digest, so restoring the upstream icon silently fails validation. Do not weaken the check to make an upstream merge pass; reconcile product-facing changes deliberately.

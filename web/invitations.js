@@ -16,7 +16,7 @@ export function invitationLink(value, base = location.href) {
 export function readInvitation(link) {
   const url = new URL(link);
   const encoded = new URLSearchParams(url.hash.slice(1)).get('connect');
-  if (!encoded || encoded.length > 64000 || !/^[A-Za-z0-9_-]+$/.test(encoded)) throw new Error('Paste a valid Desigma connection link.');
+  if (!encoded || encoded.length > 64000 || !/^[A-Za-z0-9_-]+$/.test(encoded)) throw new Error('Paste a valid FDE2E Desigma connection link.');
   let data;
   try { data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(atob(encoded.replaceAll('-', '+').replaceAll('_', '/')), c => c.charCodeAt(0)))); }
   catch { throw new Error('The connection link is damaged or incomplete. Copy the full link again.'); }

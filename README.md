@@ -1,23 +1,25 @@
-# Desigma · WebAssembly editor
+# FDE2E Desigma
 
-A design editor that runs entirely in your browser, built from [Desigma](https://github.com/deepfounder-ai/desigma)'s Rust document, layout and rendering engines. This fork maintains **only the WASM browser application** on `browser-wasm`.
+纯 Web 设计工具——完全运行于浏览器的 Rust / WebAssembly 编辑器。只维护 **WASM** 产品形态，复用同一套文档、布局、渲染与撤销引擎：
 
-[Browser setup and API](docs/browser.md) · [Upstream updates](docs/upstream-sync.md) · [Contributing](CONTRIBUTING.md) · [WASM CI](https://github.com/jixoai/desigma/actions/workflows/web.yml)
+```text
+设计界面 / Agent 操作 ──▶ WebMCP 工具面（58 个工具，共享文档与 Undo）
+Rust 编辑与渲染引擎   ──▶ WebAssembly + WebGPU（WebGL / CPU 兼容路径）
+本地项目与文件        ──▶ IndexedDB 按需加载 + 增量恢复 + 浏览器下载
+导入 / 导出 / 缩略图  ──▶ Web Worker（按需启动，空闲回收）
+```
 
-## What runs in the browser
+由 **FDE2E（昭智羽名(厦门)科技有限公司）** 维护；对外名称 **FDE2E Desigma**，品牌 **FDE2E™**，使用自己的图标和项目入口。
 
-- The original editor: frames, auto layout, components, variables, vector editing, prototypes, whiteboards, decks and motion.
-- WebGPU rendering, with WebGL and CPU fallback.
-- Local projects in IndexedDB, document loading on demand, incremental recovery saves and offline static assets.
-- Worker imports and exports, including PNG, JPEG, SVG, PDF, GIF and WebM.
-- **58 WebMCP tools**, sharing the live document and Undo history. A JavaScript API is available when the browser lacks native WebMCP.
-- Sandboxed plugins and WebRTC collaboration, with invitation/reply links or an optional self-hosted signaling service.
+## Fork 链
 
-Document operations run on the user's device. A static web server is enough to serve the editor; the optional signaling service only exchanges connection descriptions.
+- 基于开源设计编辑器改造；上游仓库、锚定提交与改造边界见 [FORK.md](FORK.md)。
+- 许可：**MIT OR Apache-2.0**；保留 [LICENSE-MIT](LICENSE-MIT)、[LICENSE-APACHE](LICENSE-APACHE) 及 [第三方声明](THIRD_PARTY_NOTICES.md)，新增贡献沿用相同许可。
+- 源码仓：[jixoai/desigma](https://github.com/jixoai/desigma)。`browser-wasm` 是默认开发分支；`main` 仅镜像上游历史。每周同步生成草稿 PR，通过 WASM、浏览器和品牌检查后人工合并。见 [同步说明](docs/upstream-sync.md)。
 
-## Build and run
+## 开发
 
-Install the pinned Rust toolchain from `rust-toolchain.toml`, Node 22+, Python 3.11+ and Binaryen (`wasm-opt`). Install the wasm-bindgen CLI version matching `Cargo.lock` (currently `0.2.129`).
+需要仓库锁定的 Rust 工具链、Node 22+、Python 3.11+、Binaryen（`wasm-opt`）。
 
 ```sh
 git clone https://github.com/jixoai/desigma.git
@@ -29,43 +31,25 @@ python3 scripts/build-web.py
 python3 scripts/serve-web.py --port 8080
 ```
 
-Open <http://127.0.0.1:8080>. `dist/` is the deployable static application. [Browser CI](https://github.com/jixoai/desigma/actions/workflows/web.yml) also provides a `desigma-browser` artifact for successful builds. Production hosting needs HTTPS and the correct WASM MIME type; see [deployment instructions](docs/browser.md#build-and-run).
+访问 <http://127.0.0.1:8080>。`dist/` 可部署到静态 HTTPS 托管服务；[WASM CI](https://github.com/jixoai/desigma/actions/workflows/web.yml) 提供 `desigma-browser` 构建产物。本仓库尚未指定线上站点。
 
 ## WebMCP
 
 ```js
 const tools = window.desigma.tools();
-const document = await window.desigma.call('desigma_get_document', {});
+const doc = await window.desigma.call('desigma_get_document', {});
 await window.desigma.call('desigma_create_node', {
-  parent_id: document.pages[0].node_id,
-  kind: 'rectangle',
-  name: 'Card',
-  width: 320,
-  height: 180,
+  parent_id: doc.pages[0].node_id,
+  kind: 'rectangle', name: 'Card', width: 320, height: 180,
 });
 ```
 
-The adapter registers with `document.modelContext` where supported. Tool schemas ship in `dist/tools.json`; [the API guide](docs/browser.md#webmcp) covers permissions, document commands, exports, plugins and collaboration.
+支持浏览器原生 `document.modelContext`；未支持时可用相同 JavaScript API。`.desigma` 文件、`desigma_*` 工具名及存储键保持兼容。接口清单随构建发布于 `tools.json`。
 
-## Maintenance
+[运行与 API](docs/browser.md) · [贡献指南](CONTRIBUTING.md) · [静态发布](docs/releasing.md) · [反馈问题](https://github.com/jixoai/desigma/issues)
 
-`browser-wasm` is the default development branch. `main` is an unmodified mirror of upstream history, used for updates. It is not a second supported product branch.
+## 使用边界
 
-Weekly upstream synchronization creates an isolated merge branch and draft PR, validates the WASM target and browser adapters, and preserves Git ancestry. Desktop CI, desktop installers and desktop releases are outside this fork's maintenance scope. Inherited shared Rust sources remain to make upstream integration practical; this fork does not promise desktop compatibility. The original project maintains desktop distributions.
+推荐桌面尺寸的现代浏览器。浏览器存储有配额，请导出文件备份；WebGPU、WebMCP 与视频编码能力取决于浏览器。协作可交换连接链接，也可选配自托管信令及 STUN / TURN。内置 FDE2E Shapes 插件可离线安装。
 
-```sh
-python3 scripts/sync-upstream.py status --fetch
-python3 scripts/sync-upstream.py prepare --worktree ../desigma-upstream
-```
-
-See [the synchronization guide](docs/upstream-sync.md) for conflict resolution and validation. The workflow never merges an upstream update automatically.
-
-## Performance and limits
-
-A local focused 5000-layer run measured 16.9 ms median frame intervals and 2.73 ms median CPU canvas preparation. These are measurements on one machine, not a sustained 60 FPS guarantee. [Measured results](docs/browser-performance.json) include the environment, storage behavior and limitations.
-
-Browser storage quotas still apply. Some histories and assets remain in memory, older browsers may lack SIMD/WebGPU/WebMCP support, and cross-network collaboration can require STUN/TURN. The editor works best on desktop-sized browser windows. Export `.desigma` files for portable backups. See [browser.md](docs/browser.md) for the full compatibility notes.
-
-## License and attribution
-
-This fork builds on [deepfounder-ai/desigma](https://github.com/deepfounder-ai/desigma), with the upstream MIT OR Apache-2.0 licensing and attribution retained. Third-party fonts, libraries and plugin assets retain their respective licenses.
+本机 5000 图层实测帧间隔中位数 16.9 ms，CPU 画布准备中位数 2.73 ms；这是单机测量，不是持续 60 FPS 保证。[性能记录](docs/browser-performance.json) 与 [兼容性说明](docs/browser.md) 保留具体条件。

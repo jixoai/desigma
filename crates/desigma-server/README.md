@@ -1,4 +1,6 @@
-# desigma-server
+# FDE2E Desigma · inherited server reference
+
+> FDE2E Desigma only maintains the WASM browser product. These inherited native interfaces are internal engine references. Use the [browser WebMCP and collaboration guide](../../docs/browser.md) for supported usage.
 
 A headless, always-on host for [live collaboration](../../docs/collaboration.md). It keeps one
 `.desigma` file shared permanently, with the same protocol a desktop host speaks, so the desktop

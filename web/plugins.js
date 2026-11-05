@@ -1,25 +1,35 @@
+export const DEFAULT_PLUGIN_URL = 'https://github.com/jixoai/desigma/blob/browser-wasm/plugins/shapes/manifest.json';
+
+// Match the Rust registry boundary before downloading any untrusted assets.
+export function canonicalPluginUrl(input) {
+  const url = new URL(input.trim());
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash || input.includes('%') || input.includes('\\') || input.split('/').some(p => p === '.' || p === '..')) throw new Error('Invalid plugin URL');
+  const parts = url.pathname.slice(1).split('/');
+  if (url.hostname === 'github.com' && parts.length === 7 && parts[2] === 'blob') parts.splice(2, 1);
+  else if (url.hostname !== 'raw.githubusercontent.com' || parts.length !== 6) throw new Error('Use a plugin manifest from jixoai/desigma');
+  const safe = part => /^[\w.-]{1,100}$/.test(part) && part !== '.' && part !== '..';
+  if (parts[0] !== 'jixoai' || parts[1] !== 'desigma' || !safe(parts[2]) || parts[3] !== 'plugins' || !safe(parts[4]) || parts[5] !== 'manifest.json') throw new Error('Use a plugin manifest from jixoai/desigma');
+  return `https://raw.githubusercontent.com/${parts.join('/')}`;
+}
+
 // Isolate installed panels in an opaque-origin sandbox. The only document operation
 // crossing the boundary is validated SVG insertion into the currently running session.
 export function createPluginHost({ fetchBytes, cache, insertSvg, onError, storage }) {
   const active = new Map(); let sequence = 0;
   const encode = new TextEncoder(), decode = new TextDecoder();
   const safePath = path => typeof path === 'string' && path.length <= 240 && path.split('/').every(p => /^[\w.-]{1,100}$/.test(p) && p !== '.' && p !== '..');
-  function canonical(input) {
-    const url = new URL(input);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || input.includes('%') || input.includes('\\')) throw new Error('Invalid plugin URL');
-    const path = url.pathname.replace('/blob/', '/');
-    if (!['github.com', 'raw.githubusercontent.com'].includes(url.hostname) || !/^\/deepfounder-ai\/desigma-plugins\/[\w.-]+\/plugins\/[\w.-]+\/manifest\.json$/.test(path)) throw new Error('Use a manifest from deepfounder-ai/desigma-plugins');
-    return `https://raw.githubusercontent.com${path}`;
-  }
   async function prepare(input) {
-    const url = canonical(input), base = url.slice(0, -'manifest.json'.length);
-    const manifestBytes = await fetchBytes(url, 2 << 20);
+    const url = canonicalPluginUrl(input), base = url.slice(0, -'manifest.json'.length);
+    // The default package travels with the static build, including offline precaching.
+    // Other revisions still use their exact remote source.
+    const downloadBase = url === canonicalPluginUrl(DEFAULT_PLUGIN_URL) ? new URL('./plugins/shapes/', import.meta.url).href : base;
+    const manifestBytes = await fetchBytes(downloadBase + 'manifest.json', 2 << 20);
     const manifest = JSON.parse(decode.decode(manifestBytes));
     const files = manifest.schema_version === 2 ? manifest.files : [manifest.main];
     if (!Array.isArray(files) || files.length > 16 || !files.every(safePath)) throw new Error('Invalid plugin asset list');
     const downloaded = new Map([[url, manifestBytes]]); let total = manifestBytes.length;
     for (const file of [...files, 'LICENSE']) {
-      const bytes = await fetchBytes(base + file, 2 << 20); total += bytes.length;
+      const bytes = await fetchBytes(downloadBase + file, 2 << 20); total += bytes.length;
       if (total > 8 << 20) throw new Error('Plugin bundle exceeds 8 MiB');
       downloaded.set(base + file, bytes);
     }

@@ -109,7 +109,7 @@ pub enum Action {
     ToggleUpdateCheck,
     /// Preferences -> Allow MCP agents to control this editor.
     ToggleAgentBridge,
-    /// Preferences -> Claude…: register the installed MCP server with Claude.
+    /// Preferences -> WebMCP: manage agent access.
     Mcp,
     /// Preferences -> Language -> ...
     SetLanguage(crate::i18n::Lang),
@@ -222,7 +222,7 @@ pub fn run(app: &mut App, ctx: &Context, a: Action) {
             app.ui.menu = Some(MenuKind::Palette);
             app.ui.menu_anchor = None;
         }
-        Action::About => app.show_toast("desigma, a Figma-compatible design editor", false),
+        Action::About => app.show_toast("FDE2E Desigma, a browser design editor", false),
         Action::Plugins => app.open_plugins(),
         Action::BackToFiles => app.go_home(),
         Action::SaveToLibrary => app.begin_save_to_library(),
@@ -474,10 +474,10 @@ fn main_nodes(app: &App) -> Vec<Node> {
     let help = vec![
         leaf("Command palette", "Ctrl+K", Action::OpenPalette),
         leaf("Keyboard shortcuts", "", Action::Shortcuts).sep(),
-        leaf("About desigma", "", Action::AboutDesigma),
+        leaf("About FDE2E Desigma", "", Action::AboutDesigma),
         leaf(&format!("Version {}", crate::VERSION), "", Action::About).off(true),
         leaf("Check for updates…", "", Action::CheckForUpdates),
-        leaf("desigma on GitHub", "", Action::OpenGithub),
+        leaf("FDE2E Desigma on GitHub", "", Action::OpenGithub),
     ];
     vec![
         leaf("Back to files", "", Action::BackToFiles).sep(),
@@ -500,7 +500,7 @@ fn main_nodes(app: &App) -> Vec<Node> {
                 leaf("Check for updates automatically", "", Action::ToggleUpdateCheck)
                     .on(crate::RELEASE_BUILD && !app.updater.no_auto_check)
                     .off(!crate::RELEASE_BUILD),
-                leaf("Claude…", "", Action::Mcp),
+                leaf("WebMCP…", "", Action::Mcp),
                 leaf("Allow MCP agents to control this editor", "", Action::ToggleAgentBridge).on(app.bridge.bridge.is_some()),
                 submenu(
                     "Language",

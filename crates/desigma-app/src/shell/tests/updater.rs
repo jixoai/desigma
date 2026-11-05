@@ -11,7 +11,7 @@ mod install;
 fn release() -> Release {
     Release {
         version: semver::Version::parse("99.0.0-alpha.1").unwrap(),
-        page: "https://github.com/deepfounder-ai/desigma/releases/tag/v99.0.0-alpha.1".into(),
+        page: "https://github.com/jixoai/desigma/releases/tag/v99.0.0-alpha.1".into(),
         notes: (1..=10).map(|i| format!("• change {i}")).collect(),
         assets: vec![],
     }

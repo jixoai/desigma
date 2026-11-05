@@ -158,6 +158,7 @@ def scope(root):
 def check(root):
     scope(root)
     commands = [
+        [sys.executable, 'scripts/check-branding.py'],
         ['cargo', 'fmt', '--all', '--check'],
         ['cargo', 'clippy', '--locked', '-p', 'desigma-app', '--lib', '--target', 'wasm32-unknown-unknown', '--no-default-features', '--', '-D', 'warnings'],
         ['npm', 'ci', '--prefix', 'web', '--ignore-scripts'], ['npm', 'test', '--prefix', 'web'],

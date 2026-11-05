@@ -34,7 +34,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Every desigma release so far is a pre-release, so `/releases/latest` answers 404; list them instead.
-const RELEASES: &str = "https://api.github.com/repos/deepfounder-ai/desigma/releases?per_page=20";
+const RELEASES: &str = "https://api.github.com/repos/jixoai/desigma/releases?per_page=20";
 const MAX_LISTING: u64 = 2 << 20;
 /// Seconds after launch before the first automatic check, then between checks.
 const FIRST_CHECK: f64 = 5.0;
@@ -480,7 +480,7 @@ mod tests {
     fn the_real_listing_offers_the_newest_alpha() {
         let r = newest(FIXTURE, "0.1.0-alpha.5").unwrap().unwrap();
         assert_eq!(r.version.to_string(), "0.1.0-alpha.7");
-        assert_eq!(r.page, "https://github.com/deepfounder-ai/desigma/releases/tag/v0.1.0-alpha.7");
+        assert_eq!(r.page, "https://github.com/jixoai/desigma/releases/tag/v0.1.0-alpha.7");
         assert_eq!(r.notes, ["• fig: nested instance swaps and variable-bound paints in instance overrides by @MrAndrewMal"]);
         assert_eq!(found(FIXTURE, "0.1.0-alpha.7"), None, "up to date");
         assert_eq!(found(FIXTURE, "0.1.0-alpha.9"), None, "a newer local build is not downgraded");

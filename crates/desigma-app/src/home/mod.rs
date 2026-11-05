@@ -24,7 +24,7 @@ use desigma_library::{FileEntry, Library, Project, TrashItem};
 use egui::{Pos2, Rect, Ui, Vec2};
 use std::collections::HashSet;
 
-pub const GITHUB_URL: &str = "https://github.com/deepfounder-ai/desigma";
+pub const GITHUB_URL: &str = "https://github.com/jixoai/desigma";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Section {
@@ -433,7 +433,7 @@ pub fn apply(app: &mut App, act: Act) {
                 .add_filter("Pencil file", &["pen"])
                 .add_filter("SVG", &["svg"])
                 .add_filter("JSON", &["json"])
-                .add_filter("desigma", &["desigma"])
+                .add_filter("FDE2E Desigma", &["desigma"])
                 .pick_files();
             if let Some(paths) = paths {
                 let target = match app.home_target() {

@@ -76,7 +76,7 @@ pub const ELEVATION_400_SHADOW: Color32 = rgba(0x000000, 0x59);
 pub const ELEVATION_400_RING: Color32 = rgba(0xFFFFFF, 0x16);
 pub const ELEVATION_400_TOP: Color32 = rgba(0xFFFFFF, 0x0A);
 pub const INNER_HIGHLIGHT: Color32 = rgba(0xFFFFFF, 0x14);
-pub const LOGO_GRADIENT_A: Color32 = rgb(0x0C8CE9);
+pub const LOGO_GRADIENT_A: Color32 = rgb(0x0D3532);
 pub const CHECKER_A: Color32 = rgb(0xFFFFFF);
 pub const CHECKER_B: Color32 = rgb(0xCCCCCC);
 
@@ -500,7 +500,7 @@ pub const PRESENT_MAX_SCALE: f32 = 4.0;
 pub const DEFAULT_WINDOW: (f32, f32) = (1600.0, 1088.0);
 #[cfg(not(target_arch = "wasm32"))]
 pub const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
-pub const APP_TITLE: &str = "desigma";
+pub const APP_TITLE: &str = "FDE2E Desigma";
 pub const DEFAULT_SHAPE_SIZE: f32 = 100.0;
 pub const DEFAULT_TEXT_SIZE: f32 = 16.0;
 pub const DEFAULT_PAGE_BG: u32 = 0xF5F5F5;

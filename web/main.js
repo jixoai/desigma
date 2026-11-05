@@ -138,12 +138,12 @@ globalThis.desigmaBrowser = {
   exportProgress: id => exportJobs.get(id)?.progress || [1,1],
   async fetchBytes(url, maximum) {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') throw new Error('Font downloads require HTTPS');
+    if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && parsed.origin === location.origin)) throw new Error('Downloads require HTTPS or the local application origin');
     const response = await fetch(parsed, { credentials: 'omit', signal: AbortSignal.timeout(30000) });
     if (!response.ok) throw new Error(`Download failed (${response.status})`);
-    if (Number(response.headers.get('content-length')) > maximum) throw new Error('Font download is too large');
+    if (Number(response.headers.get('content-length')) > maximum) throw new Error('Download is too large');
     const reader = response.body.getReader(); const chunks = []; let total = 0;
-    while (true) { const { done, value } = await reader.read(); if (done) break; total += value.length; if (total > maximum) { await reader.cancel(); throw new Error('Font download is too large'); } chunks.push(value); }
+    while (true) { const { done, value } = await reader.read(); if (done) break; total += value.length; if (total > maximum) { await reader.cancel(); throw new Error('Download is too large'); } chunks.push(value); }
     const bytes = new Uint8Array(total); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
     return bytes;
   },

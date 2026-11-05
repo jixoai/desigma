@@ -1,0 +1,28 @@
+{
+  "product": "FDE2E Desigma",
+  "icons": {
+    "web/icon.png": "86f57c9e2dc5e2dbea8353068ee61b2dcdd518fb11ab5a5488fc3be056bf3b53",
+    "assets/icon/desigma-icon-macos.svg": "ca16fbeed0f7d3abb033a7449bd34d07e40ff233f8f6bf61319bab366dafbf66",
+    "assets/icon/desigma-icon.svg": "ca16fbeed0f7d3abb033a7449bd34d07e40ff233f8f6bf61319bab366dafbf66",
+    "assets/icon/desigma.icns": "b2747484b1d401f538439f26b595079afcf14e81b802adfc7e0a3cc3f74357a7",
+    "assets/icon/desigma.ico": "b9c6928f2dd733950231a957ddd786b3378332c2bc1270d37c9522fc4ec9c3fd",
+    "assets/icon/desigma.iconset/icon_128x128.png": "75b7396f6aba9d8283e7efe8c7020998dcd947864af3b43ec8ff5e119f4502ea",
+    "assets/icon/desigma.iconset/icon_128x128@2x.png": "86f57c9e2dc5e2dbea8353068ee61b2dcdd518fb11ab5a5488fc3be056bf3b53",
+    "assets/icon/desigma.iconset/icon_16x16.png": "0f7c337616f967f7c3582cdab6097fd72d020376768aff4a00066589c73d1dbd",
+    "assets/icon/desigma.iconset/icon_16x16@2x.png": "f5d57562bbb3f996b3b3c3b17e248dd9314854808916680787600aebea555712",
+    "assets/icon/desigma.iconset/icon_256x256.png": "86f57c9e2dc5e2dbea8353068ee61b2dcdd518fb11ab5a5488fc3be056bf3b53",
+    "assets/icon/desigma.iconset/icon_256x256@2x.png": "6843d27fc6e921159ccc0ec61622136b654395e47354ace19c62a7e733465020",
+    "assets/icon/desigma.iconset/icon_32x32.png": "f5d57562bbb3f996b3b3c3b17e248dd9314854808916680787600aebea555712",
+    "assets/icon/desigma.iconset/icon_32x32@2x.png": "f0e92ead8a9a6e777b8bc0d01bfd881c96602433f8c515207a51193de4b35b91",
+    "assets/icon/desigma.iconset/icon_512x512.png": "6843d27fc6e921159ccc0ec61622136b654395e47354ace19c62a7e733465020",
+    "assets/icon/desigma.iconset/icon_512x512@2x.png": "c9d8e82ae7313ac3db182b9d3bdcee6f78ca3c3a3bbd11c2eb11b449a47fdb23",
+    "assets/icon/png/icon_1024.png": "c9d8e82ae7313ac3db182b9d3bdcee6f78ca3c3a3bbd11c2eb11b449a47fdb23",
+    "assets/icon/png/icon_128.png": "75b7396f6aba9d8283e7efe8c7020998dcd947864af3b43ec8ff5e119f4502ea",
+    "assets/icon/png/icon_16.png": "0f7c337616f967f7c3582cdab6097fd72d020376768aff4a00066589c73d1dbd",
+    "assets/icon/png/icon_256.png": "86f57c9e2dc5e2dbea8353068ee61b2dcdd518fb11ab5a5488fc3be056bf3b53",
+    "assets/icon/png/icon_32.png": "f5d57562bbb3f996b3b3c3b17e248dd9314854808916680787600aebea555712",
+    "assets/icon/png/icon_48.png": "e7faa6fec87e2e5cb6bec8f75afe2438ea61b089185a0b2e86df5dc457a60351",
+    "assets/icon/png/icon_512.png": "6843d27fc6e921159ccc0ec61622136b654395e47354ace19c62a7e733465020",
+    "assets/icon/png/icon_64.png": "f0e92ead8a9a6e777b8bc0d01bfd881c96602433f8c515207a51193de4b35b91"
+  }
+}

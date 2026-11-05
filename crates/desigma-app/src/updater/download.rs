@@ -264,10 +264,7 @@ mod tests {
         let dir = temp("cancel");
         let dest = dir.join("out.bin");
         let cancel = AtomicBool::new(true);
-        assert_eq!(
-            to_file("https://github.com/deepfounder-ai/desigma/releases/download/v1/x", &dest, MAX_DOWNLOAD, &cancel, &mut |_, _| {}),
-            Err(Fail::Cancelled)
-        );
+        assert_eq!(to_file("https://github.com/jixoai/desigma/releases/download/v1/x", &dest, MAX_DOWNLOAD, &cancel, &mut |_, _| {}), Err(Fail::Cancelled));
         // pressed while the bytes arrive
         let (base, _s) = serve(vec![ok(&[1u8; 200_000])]);
         let cancel = AtomicBool::new(false);

@@ -18,9 +18,9 @@ fn main() {
     let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".into());
     let mut res = winresource::WindowsResource::new();
     res.set_icon("../../assets/icon/desigma.ico");
-    res.set("ProductName", "desigma");
-    res.set("FileDescription", "desigma");
-    res.set("CompanyName", "desigma contributors");
+    res.set("ProductName", "FDE2E Desigma");
+    res.set("FileDescription", "FDE2E Desigma");
+    res.set("CompanyName", "FDE2E");
     res.set("LegalCopyright", "MIT OR Apache-2.0");
     res.set("OriginalFilename", "desigma.exe");
     res.set("ProductVersion", &version);

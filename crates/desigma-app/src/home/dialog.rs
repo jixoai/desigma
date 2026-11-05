@@ -171,29 +171,21 @@ impl App {
     }
 
     pub fn show_about(&mut self) {
-        let mut lines = vec![
-            ("desigma is a free, open-source design editor written in Rust.".to_string(), String::new()),
-            (
-                if crate::RELEASE_BUILD {
-                    format!("Version {}", crate::VERSION)
-                } else {
-                    format!("Version {} (development build, it does not check for updates)", crate::VERSION)
-                },
-                String::new(),
-            ),
-            ("There are no accounts, plans or cloud. Your files stay on this computer.".to_string(), String::new()),
+        let lines = vec![
+            ("FDE2E Desigma is an open-source design editor that runs in your browser.".to_string(), String::new()),
+            (format!("Version {}", crate::VERSION), String::new()),
+            ("Maintained by FDE2E (昭智羽名(厦门)科技有限公司).".to_string(), String::new()),
+            ("Your projects are saved in this browser. Download files for portable backups.".to_string(), String::new()),
+            ("Source, licenses and attribution: github.com/jixoai/desigma".to_string(), String::new()),
         ];
-        if let Some(lib) = &self.lib {
-            lines.push((format!("Library: {}", lib.root().display()), String::new()));
-        }
-        self.dialog = Some(Dialog::info(Intent::About, "About desigma", lines));
+        self.dialog = Some(Dialog::info(Intent::About, "About FDE2E Desigma", lines));
     }
 
     pub fn confirm_open_github(&mut self) {
         self.dialog = Some(Dialog::confirm(
             Intent::OpenGithub,
             "Open the GitHub repository?",
-            &["This opens the desigma source code page in your web browser.", super::GITHUB_URL],
+            &["This opens the FDE2E Desigma source code page in your web browser.", super::GITHUB_URL],
             "Open",
         ));
     }

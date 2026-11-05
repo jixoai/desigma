@@ -1,4 +1,6 @@
-# Desigma MCP
+# FDE2E Desigma · shared MCP engine
+
+> FDE2E Desigma only maintains the WASM browser product. These inherited native interfaces are internal engine references. Use the [browser WebMCP and collaboration guide](../../docs/browser.md) for supported usage.
 
 A local MCP server for inspecting and editing design files with Desigma's document model and code generators. By default it runs an isolated, in-memory file session over stdio. When the editor's agent bridge is on, it attaches to the running editor instead and edits the document open on screen; see [Live editor control](#live-editor-control).
 

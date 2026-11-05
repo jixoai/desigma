@@ -1,4 +1,4 @@
-# Simplified Chinese (zh-CN) UI strings for desigma.
+# Simplified Chinese (zh-CN) UI strings for FDE2E Desigma.
 #
 # One entry per line: the English text exactly as it appears in the code, a TAB, then the
 # translation. Lines starting with # and blank lines are ignored. English text without an
@@ -137,9 +137,9 @@ Claude…	连接 Claude…
 # ---- Help
 Command palette	命令面板
 Keyboard shortcuts	键盘快捷键
-About desigma	关于 desigma
+About FDE2E Desigma	关于 FDE2E Desigma
 Check for updates…	检查更新…
-desigma on GitHub	GitHub 上的 desigma
+FDE2E Desigma on GitHub	GitHub 上的 FDE2E Desigma
 
 # ---- other menus (home screen, layers, variables, versions, comments)
 Rename	重命名
@@ -334,7 +334,7 @@ Trash emptied	已清空废纸篓
 Version moved to the trash	已将版本移到废纸篓
 Version restored. Undo brings the previous state back	已恢复版本。撤销可回到之前的状态
 Viewing an old version is read-only	查看旧版本时为只读
-desigma, a Figma-compatible design editor	desigma，兼容 Figma 文件的设计编辑器
+FDE2E Desigma, a browser design editor	FDE2E Desigma，浏览器设计编辑器
 
 # ---- home screen
 Search files	搜索文件
@@ -384,10 +384,10 @@ Group / ungroup	编组 / 取消编组
 Zoom to fit / selection	缩放至适合大小 / 所选内容
 Show or hide the UI	显示或隐藏界面
 Present	演示
-desigma is a free, open-source design editor written in Rust.	desigma 是一款用 Rust 编写的免费开源设计编辑器。
+FDE2E Desigma is an open-source design editor that runs in your browser.	FDE2E Desigma 是完全运行于浏览器的开源设计编辑器。
 There are no accounts, plans or cloud. Your files stay on this computer.	没有账户、套餐或云端。你的文件保存在这台电脑上。
 Open the GitHub repository?	打开 GitHub 仓库？
-This opens the desigma source code page in your web browser.	这将在网页浏览器中打开 desigma 的源代码页面。
+This opens the FDE2E Desigma source code page in your web browser.	这将在浏览器中打开 FDE2E Desigma 的源代码页面。
 This opens the link in your web browser.	这将在网页浏览器中打开该链接。
 Empty the trash?	清空废纸篓？
 1 item will be permanently deleted.	1 个项目将被永久删除。
@@ -424,3 +424,9 @@ Reload	重新载入
 Reloaded {} (changed on disk)	已重新载入 {}（磁盘上有变化）
 Keep both (save a copy)	两边都留着（另存一份）
 Saved your edits to {}	已把你的修改另存为 {}
+Maintained by FDE2E (昭智羽名(厦门)科技有限公司).	由 FDE2E（昭智羽名(厦门)科技有限公司）维护。
+Your projects are saved in this browser. Download files for portable backups.	项目保存在当前浏览器中。请下载文件以便迁移和备份。
+Source, licenses and attribution: github.com/jixoai/desigma	源码、许可证和来源说明：github.com/jixoai/desigma
+Install FDE2E Shapes, or paste another manifest URL from jixoai/desigma.	安装 FDE2E Shapes，或粘贴 jixoai/desigma 仓库中的插件清单地址。
+FDE2E Shapes is included with the editor and can be installed offline.	编辑器已附带 FDE2E Shapes，可离线安装。
+Install FDE2E Shapes to add editable shapes to your design. Its package stays on this device.	安装 FDE2E Shapes，为设计添加可编辑图形。插件保存在本机。

@@ -29,7 +29,9 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref }}
       - name: Check WASM maintenance scope
-        run: python3 scripts/sync-upstream.py scope
+        run: |
+          python3 scripts/sync-upstream.py scope
+          python3 scripts/check-branding.py
       - name: Read pinned build tools
         id: versions
         run: |

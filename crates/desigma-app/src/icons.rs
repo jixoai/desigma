@@ -602,15 +602,16 @@ pub fn paint(p: &Painter, icon: Icon, center: Pos2, size: f32, col: Color32) {
     }
 }
 
-/// The brand mark (hand-drawn, ours): a rounded square with a white "d".
+/// FDE2E's geometric F mark; keep in sync with assets/icon/desigma-icon.svg.
 fn paint_logo(p: &Painter, center: Pos2, size: f32) {
     let k = size / 16.0;
     let o = Pos2::new(center.x - size / 2.0, center.y - size / 2.0);
     let pt = |x: f32, y: f32| Pos2::new(o.x + x * k, o.y + y * k);
     p.rect_filled(Rect::from_min_size(pt(1.0, 1.0), Vec2::new(14.0 * k, 14.0 * k)), 4.0 * k, theme::LOGO_GRADIENT_A);
-    p.circle_filled(pt(6.5, 9.5), 3.2 * k, Color32::WHITE);
-    p.rect_filled(Rect::from_min_size(pt(8.9, 3.5), Vec2::new(1.8 * k, 9.2 * k)), 0.9 * k, Color32::WHITE);
-    p.circle_filled(pt(6.5, 9.5), 1.4 * k, theme::LOGO_GRADIENT_A);
+    let ink = Color32::from_rgb(124, 232, 202);
+    for (x, y, w, h) in [(4.0, 4.0, 2.0, 8.0), (6.0, 4.0, 6.0, 2.0), (6.0, 7.0, 4.0, 2.0), (10.0, 10.0, 2.0, 2.0)] {
+        p.rect_filled(Rect::from_min_size(pt(x, y), Vec2::new(w * k, h * k)), 0.0, ink);
+    }
 }
 
 #[cfg(test)]

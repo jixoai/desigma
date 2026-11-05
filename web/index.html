@@ -4,19 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2c2c2c">
-  <meta name="description" content="Desigma design editor. Your designs, edited and saved in your browser.">
-  <title>Desigma — Browser editor</title>
+  <meta name="description" content="FDE2E Desigma design editor. Your designs, edited and saved in your browser.">
+  <title>FDE2E Desigma — Browser editor</title>
   <link rel="icon" href="./icon.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
   <link rel="modulepreload" href="./pkg/desigma_app.js">
 </head>
 <body>
-  <main id="editor" aria-label="Desigma design editor">
+  <main id="editor" aria-label="FDE2E Desigma design editor">
     <canvas id="canvas" tabindex="0" aria-label="Design canvas. Press Control or Command K for actions; use the panels to edit layers."></canvas>
     <div id="loading" role="status" aria-live="polite">
       <img src="./icon.png" alt="" width="56" height="56">
-      <h1>Desigma</h1>
+      <h1>FDE2E Desigma</h1>
       <p id="loading-message">Opening your workspace…</p>
       <progress id="loading-progress" aria-label="Loading editor"></progress>
       <p class="hint">Your work stays on this device.</p>
@@ -63,7 +63,7 @@
     <p class="hint">For an existing shared session, its current password and permissions apply.</p>
     <div id="sharing-output-group" hidden><label id="sharing-output-label" for="sharing-output">Invitation link</label><textarea id="sharing-output" rows="3" readonly spellcheck="false"></textarea><button id="sharing-copy" type="button">Copy link</button></div>
     <hr>
-    <label>Invitation or reply link <textarea id="sharing-input" rows="3" spellcheck="false" placeholder="Paste a Desigma connection link"></textarea></label>
+    <label>Invitation or reply link <textarea id="sharing-input" rows="3" spellcheck="false" placeholder="Paste an FDE2E Desigma connection link"></textarea></label>
     <label>Your name <input id="sharing-name" value="Guest" maxlength="80" autocomplete="nickname"></label>
     <label class="check"><input id="sharing-discard" type="checkbox"> Replace my current document when joining</label>
     <div class="sharing-actions"><button id="sharing-accept" type="button">Use connection link</button><button id="sharing-end" type="button">End connection</button></div>

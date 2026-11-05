@@ -91,7 +91,7 @@ pub fn expected_digest(sums: &str, name: &str) -> Result<String, String> {
     found.ok_or_else(|| format!("SHA256SUMS has no entry for {name}"))
 }
 
-const REPO_DOWNLOADS: &str = "/deepfounder-ai/desigma/releases/download/";
+const REPO_DOWNLOADS: &str = "/jixoai/desigma/releases/download/";
 /// GitHub's own hosts for release files: an asset URL on github.com redirects to one of these.
 const CDN_HOSTS: [&str; 2] = ["objects.githubusercontent.com", "release-assets.githubusercontent.com"];
 
@@ -137,7 +137,7 @@ mod tests {
     }
 
     fn asset(name: &str) -> Asset {
-        Asset { name: name.into(), url: format!("https://github.com/deepfounder-ai/desigma/releases/download/v1/{name}"), size: 1 }
+        Asset { name: name.into(), url: format!("https://github.com/jixoai/desigma/releases/download/v1/{name}"), size: 1 }
     }
 
     #[test]
@@ -186,18 +186,18 @@ mod tests {
 
     #[test]
     fn only_this_repositorys_release_files_may_be_fetched() {
-        let ok = "https://github.com/deepfounder-ai/desigma/releases/download/v0.1.0-alpha.8/SHA256SUMS";
+        let ok = "https://github.com/jixoai/desigma/releases/download/v0.1.0-alpha.8/SHA256SUMS";
         assert!(check_asset_url(ok).is_ok());
         assert!(check_redirect_url(ok).is_ok());
         for bad in [
-            "http://github.com/deepfounder-ai/desigma/releases/download/v1/x",
+            "http://github.com/jixoai/desigma/releases/download/v1/x",
             "https://github.com/other/repo/releases/download/v1/x",
-            "https://github.com/deepfounder-ai/desigma/archive/main.zip",
-            "https://github.com/deepfounder-ai/desigma/releases/download/../../../../evil/x/releases/download/x",
-            "https://github.com.evil.com/deepfounder-ai/desigma/releases/download/v1/x",
-            "https://evil.com/github.com/deepfounder-ai/desigma/releases/download/v1/x",
-            "https://user@github.com/deepfounder-ai/desigma/releases/download/v1/x",
-            "https://github.com:8443/deepfounder-ai/desigma/releases/download/v1/x",
+            "https://github.com/jixoai/desigma/archive/main.zip",
+            "https://github.com/jixoai/desigma/releases/download/../../../../evil/x/releases/download/x",
+            "https://github.com.evil.com/jixoai/desigma/releases/download/v1/x",
+            "https://evil.com/github.com/jixoai/desigma/releases/download/v1/x",
+            "https://user@github.com/jixoai/desigma/releases/download/v1/x",
+            "https://github.com:8443/jixoai/desigma/releases/download/v1/x",
             "https://objects.githubusercontent.com/github-production-release-asset/1",
             "file:///etc/passwd",
             "not a url",
@@ -212,7 +212,7 @@ mod tests {
             "http://objects.githubusercontent.com/x",
             "https://objects.githubusercontent.com.evil.com/x",
             "https://githubusercontent.com/x",
-            "https://raw.githubusercontent.com/deepfounder-ai/desigma/main/README.md",
+            "https://raw.githubusercontent.com/jixoai/desigma/main/README.md",
             "https://example.com/x",
             "http://127.0.0.2:80/x",
         ] {

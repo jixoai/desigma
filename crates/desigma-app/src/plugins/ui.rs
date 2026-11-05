@@ -55,7 +55,7 @@ pub fn show(app: &mut App, ctx: &Context) {
             ui.set_width(width);
             ui.spacing_mut().item_spacing = Vec2::new(0.0, 12.0);
             if app.plugins.install_form {
-                paragraph(ui, "Paste a manifest URL from deepfounder-ai/desigma-plugins.", theme::TEXT_SECONDARY);
+                paragraph(ui, "Install FDE2E Shapes, or paste another manifest URL from jixoai/desigma.", theme::TEXT_SECONDARY);
                 ui.add_space(4.0);
                 paragraph(ui, "Plugin URL", theme::TEXT);
                 let (field, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 38.0), Sense::hover());
@@ -70,7 +70,7 @@ pub fn show(app: &mut App, ctx: &Context) {
                                 .text_color(theme::TEXT)
                                 .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(10, 0)))
                                 .vertical_align(egui::Align::Center)
-                                .hint_text("https://github.com/deepfounder-ai/desigma-plugins/blob/main/plugins/icon-browser/manifest.json")
+                                .hint_text(super::store::DEFAULT_MANIFEST_URL)
                                 .desired_width(field.width())
                                 .min_size(field.size()),
                         )
@@ -81,11 +81,7 @@ pub fn show(app: &mut App, ctx: &Context) {
                     output.request_focus();
                     app.plugins.fresh = false;
                 }
-                paragraph(
-                    ui,
-                    "For this private repository, set DESIGMA_PLUGINS_TOKEN to a GitHub token with repository read access before starting Desigma.",
-                    theme::TEXT_TERTIARY,
-                );
+                paragraph(ui, "FDE2E Shapes is included with the editor and can be installed offline.", theme::TEXT_TERTIARY);
                 paragraph(
                     ui,
                     "Install downloads the bundle. Open launches its browser panel with the permissions listed in your library.",
@@ -101,7 +97,7 @@ pub fn show(app: &mut App, ctx: &Context) {
                 let (icon_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 60.0), Sense::hover());
                 icons::paint(ui.painter(), Icon::Tools, icon_rect.center(), 28.0, theme::ICON_SECONDARY);
                 paragraph(ui, "Your plugin library starts here", theme::TEXT);
-                paragraph(ui, "Install a plugin from deepfounder-ai/desigma-plugins to keep its package on this device.", theme::TEXT_SECONDARY);
+                paragraph(ui, "Install FDE2E Shapes to add editable shapes to your design. Its package stays on this device.", theme::TEXT_SECONDARY);
                 paragraph(ui, "Browser plugins can insert SVG icons into the open document. Each insertion supports Undo.", theme::TEXT_TERTIARY);
             } else {
                 paragraph(ui, &format!("{} installed on this device", app.plugins.installed.len()), theme::TEXT_SECONDARY);
@@ -172,6 +168,9 @@ pub fn show(app: &mut App, ctx: &Context) {
                 submit = true;
             } else {
                 app.plugins.install_form = true;
+                if app.plugins.url.trim().is_empty() {
+                    app.plugins.url = super::store::DEFAULT_MANIFEST_URL.into();
+                }
                 app.plugins.fresh = true;
                 app.plugins.error = None;
             }
@@ -200,5 +199,5 @@ pub fn show(app: &mut App, ctx: &Context) {
 }
 
 fn paragraph(ui: &mut egui::Ui, text: &str, color: Color32) {
-    ui.add(egui::Label::new(egui::RichText::new(text).font(theme::font_body()).color(color)).wrap());
+    ui.add(egui::Label::new(egui::RichText::new(crate::i18n::tr_text(text)).font(theme::font_body()).color(color)).wrap());
 }

@@ -172,7 +172,7 @@ fn payment_card(s: &mut S, parent: NodeId) -> NodeId {
     s.at(a, 170.0, -70.0);
     let b = s.ellipse(card, "Disc 2", 150.0, 150.0, Cl::C(Color::WHITE.with_alpha(0.08)));
     s.at(b, -50.0, 108.0);
-    let brand = s.text(card, "Marlow", "Text/Body strong", WHITE);
+    let brand = s.text(card, "FDE2E", "Text/Body strong", WHITE);
     s.at(brand, 24.0, 22.0);
     let c1 = s.ellipse(card, "Network 1", 28.0, 28.0, Cl::C(Color::WHITE.with_alpha(0.85)));
     s.at(c1, 232.0, 22.0);
@@ -252,7 +252,7 @@ fn onboarding(s: &mut S, page: NodeId) -> NodeId {
         Effect::DropShadow { color: Color::rgba(76, 91, 240, 140), offset: Vec2::new(0.0, 8.0), radius: 18.0, spread: -2.0, visible: true, show_behind: false },
         None,
     );
-    let m = s.text(logo, "M", "Text/Headline", WHITE);
+    let m = s.text(logo, "F", "Text/Headline", WHITE);
     centered_in(s, m, 26.0, 26.0);
     key(s, logo, P::Scale, &[(80, sc(0.3), Some(Ease::SpringBouncy)), (900, sc(1.0), None)]);
     key(s, logo, P::Rotation, &[(80, V::Scalar(-28.0), Some(Ease::SpringGentle)), (900, V::Scalar(0.0), None)]);

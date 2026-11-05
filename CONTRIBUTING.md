@@ -1,6 +1,6 @@
-# Contributing to the WASM editor
+# Contributing to FDE2E Desigma
 
-This fork maintains the browser application on `browser-wasm`. Use [deepfounder-ai/desigma](https://github.com/deepfounder-ai/desigma) for desktop development and distributions. Shared upstream Rust sources remain in this tree to keep browser updates manageable; desktop compatibility, installers and releases are outside this fork's support scope.
+FDE2E Desigma maintains the browser application on `browser-wasm`. Shared Rust sources remain in this tree to keep engine updates manageable; desktop compatibility, installers and releases are outside this fork’s support scope. Sources and licensing are documented in [FORK.md](FORK.md).
 
 ## Build and run
 
@@ -17,6 +17,7 @@ Open <http://127.0.0.1:8080/?dev=1>. See [browser.md](docs/browser.md) for tool 
 
 ```sh
 python3 scripts/sync-upstream.py scope
+python3 scripts/check-branding.py
 cargo fmt --all --check
 cargo clippy --locked -p desigma-app --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
 npm ci --prefix web --ignore-scripts
@@ -27,7 +28,7 @@ python3 -m unittest discover -s scripts/tests -v
 python3 scripts/build-web.py
 ```
 
-`python3 scripts/sync-upstream.py check` runs the same local validation and optimized build. The browser workflow checks the WASM build, browser adapters, sync behavior, maintenance scope and compressed bundle budget. It uploads the complete static application as `desigma-browser`.
+`python3 scripts/sync-upstream.py check` runs the same local validation and optimized build. The browser workflow checks the WASM build, browser adapters, sync behavior, maintenance scope, product branding and compressed bundle budget. It uploads the complete static application as `desigma-browser`.
 
 For behavior changes, run the browser smoke and relevant recovery/storage/benchmark scripts in an isolated editor tab. Verify WebGPU and WebGL fallback when rendering changes, and keep the canvas focused throughout frame measurements. Check real browser interactions and document recovery before approving upstream sync PRs. The current browser scripts and examples are documented in [browser.md](docs/browser.md#checks).
 

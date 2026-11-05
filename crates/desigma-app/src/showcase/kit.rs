@@ -284,7 +284,7 @@ pub fn build(s: &mut S) {
 
 /// Places the sets and icons on the page frame with a label above each group.
 fn layout_page(s: &mut S, ds: NodeId) {
-    let title = s.text(ds, "Marlow design system", "Text/Headline", Cl::C(hex(0x12131C)));
+    let title = s.text(ds, "FDE2E design system", "Text/Headline", Cl::C(hex(0x12131C)));
     s.at(title, 64.0, 40.0);
     let sub = s.text(ds, "Components, variants and tokens used by the mobile and web screens.", "Text/Body", Cl::C(hex(0x6A6E85)));
     s.at(sub, 64.0, 84.0);

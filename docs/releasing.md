@@ -1,4 +1,4 @@
-# Distributing the WASM editor
+# Distributing FDE2E Desigma
 
 This fork distributes the browser application. The build output is `dist/`; there are no maintained desktop installers or desktop release workflows.
 
@@ -15,4 +15,4 @@ python3 -c "import shutil; shutil.make_archive('desigma-browser', 'zip', 'dist')
 
 Do not commit the archive or `dist/`. The optional WebRTC signaling service has its own [deployment guide](../web/signaling/README.md); deploying the static editor does not deploy that service.
 
-Historical upstream desktop packaging scripts may remain in the source tree for synchronization. Desktop releases belong to [the original project](https://github.com/deepfounder-ai/desigma/releases) and are not tested, packaged or published by this fork.
+Ship the `plugins/` and `licenses/` directories with the complete build. Branding, provenance and the supported distribution scope are defined in [FORK.md](../FORK.md).

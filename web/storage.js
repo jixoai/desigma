@@ -35,7 +35,7 @@ export class BrowserFileSystem {
       request.onupgradeneeded = () => request.result.createObjectStore('files', { keyPath: 'path' });
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(new Error('Close other Desigma tabs to upgrade browser storage.'));
+      request.onblocked = () => reject(new Error('Close other FDE2E Desigma tabs to upgrade browser storage.'));
     });
     this.db.onversionchange = () => this.db.close();
     await new Promise((resolve, reject) => {

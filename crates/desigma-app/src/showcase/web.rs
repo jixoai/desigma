@@ -34,8 +34,8 @@ fn sidebar(s: &mut S, root: NodeId) {
     s.centered(mark);
     s.radius(mark, 11.0);
     s.fill_paint(mark, grad_d(&[(0.0, hex(0x4C5BF0)), (1.0, hex(0x8D5CF6))]));
-    s.text(mark, "M", "Text/Heading", WHITE);
-    s.text(logo, "Marlow", "Text/Heading", Cl::T(Tok::Ink));
+    s.text(mark, "F", "Text/Heading", WHITE);
+    s.text(logo, "FDE2E", "Text/Heading", Cl::T(Tok::Ink));
 
     let l = s.text(sb, "Menu", "Text/Micro", Cl::T(Tok::Faint));
     let _ = l;
@@ -64,7 +64,7 @@ fn sidebar(s: &mut S, root: NodeId) {
     s.radius(up, 20.0);
     s.fill_paint(up, grad_d(&[(0.0, hex(0x4C5BF0)), (1.0, hex(0x8D5CF6))]));
     s.style_fill(up, "Gradient/Brand");
-    s.text(up, "Marlow Plus", "Text/Heading", WHITE);
+    s.text(up, "FDE2E Plus", "Text/Heading", WHITE);
     s.text_w(up, "Cashback on every card payment.", "Text/Caption", white(0.85), 176.0);
     let b = s.inst(up, "Button/Secondary/Compact");
     s.set_text(b, "Label", "Upgrade");
@@ -297,9 +297,9 @@ fn table(s: &mut S, main: NodeId) {
         s.text(c, label, "Text/Micro", Cl::T(Tok::Muted));
     }
     let rows = [
-        ("Hollis Studio", "Payroll", "10 Oct, 09:41", "Completed", "+$3,850.00", "HS", (0x4C5BF0, 0x8D5CF6)),
-        ("Greenleaf Market", "Groceries", "09 Oct, 18:22", "Completed", "-$62.40", "GM", (0x12A67F, 0x36D3A8)),
-        ("Corner Roast", "Coffee", "09 Oct, 08:12", "Completed", "-$4.80", "CR", (0xF29A2E, 0xFFD58A)),
+        ("Design studio", "Payroll", "10 Oct, 09:41", "Completed", "+$3,850.00", "HS", (0x4C5BF0, 0x8D5CF6)),
+        ("Local market", "Groceries", "09 Oct, 18:22", "Completed", "-$62.40", "GM", (0x12A67F, 0x36D3A8)),
+        ("Coffee shop", "Coffee", "09 Oct, 08:12", "Completed", "-$4.80", "CR", (0xF29A2E, 0xFFD58A)),
         ("Northline Transit", "Transport", "08 Oct, 07:55", "Pending", "-$38.00", "NT", (0x2B7FFF, 0x59C3FF)),
         ("Driftwood Hosting", "Subscriptions", "07 Oct, 23:10", "Failed", "-$24.00", "DH", (0xE5436B, 0xFF8FA8)),
     ];

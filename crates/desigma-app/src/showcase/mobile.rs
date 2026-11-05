@@ -173,7 +173,7 @@ fn welcome(s: &mut S, page: NodeId, x: f32) -> (NodeId, NodeId, NodeId) {
     s.fill(mark, white(0.16));
     s.radius(mark, 10.0);
     s.at(mark, 222.0, 24.0);
-    let m = s.text(mark, "M", "Text/Body strong", WHITE);
+    let m = s.text(mark, "F", "Text/Body strong", WHITE);
     s.at(m, 9.0, 4.0);
     let num = s.text(main, "4821  ••••  ••••  7305", "Text/Body strong", white(0.9));
     s.at(num, 24.0, 98.0);
@@ -200,7 +200,7 @@ fn welcome(s: &mut S, page: NodeId, x: f32) -> (NodeId, NodeId, NodeId) {
     s.vicon(dot, Ic::Request, 18.0, Cl::T(Tok::Pos));
     let txt = s.col(pill, "Text", 0.0, [0.0; 4]);
     s.text(txt, "+$240.00", "Text/Body strong", Cl::T(Tok::Ink));
-    s.text(txt, "Received from Hollis", "Text/Label", Cl::T(Tok::Muted));
+    s.text(txt, "Sample transfer", "Text/Label", Cl::T(Tok::Muted));
     s.at(pill, 24.0, 368.0);
 
     let coin = s.row(hero, "Coin", 0.0, [0.0; 4]);
@@ -325,9 +325,9 @@ fn home(s: &mut S, page: NodeId, x: f32) -> (NodeId, NodeId) {
     section_header(s, body, "Recent activity", "See all");
     let list = card(s, body, "Activity", [4.0, 0.0, 4.0, 0.0]);
     let rows = [
-        (Ic::Coffee, "Corner Roast", "Coffee - Today, 8:12", "-$4.80", false),
-        (Ic::Basket, "Greenleaf Market", "Groceries - Yesterday", "-$62.40", false),
-        (Ic::Request, "Hollis Studio", "Salary - Mon, 6 Oct", "+$3,850.00", true),
+        (Ic::Coffee, "Coffee shop", "Coffee - Today, 8:12", "-$4.80", false),
+        (Ic::Basket, "Local market", "Groceries - Yesterday", "-$62.40", false),
+        (Ic::Request, "Design studio", "Salary - Mon, 6 Oct", "+$3,850.00", true),
     ];
     for (i, (ic, t, sub, v, pos)) in rows.into_iter().enumerate() {
         if i > 0 {
@@ -466,11 +466,11 @@ fn settings(s: &mut S, page: NodeId, x: f32) -> (NodeId, NodeId) {
     let info = s.col(profile, "Info", 2.0, [0.0; 4]);
     s.fill_w(info);
     s.text(info, "Alex Morgan", "Text/Heading", Cl::T(Tok::Ink));
-    s.text(info, "alex.morgan@example.com", "Text/Caption", Cl::T(Tok::Muted));
+    s.text(info, "demo@example.invalid", "Text/Caption", Cl::T(Tok::Muted));
     let gap = s.frame(info, "Gap");
     s.size(gap, 1.0, 4.0);
     let tag = s.inst(info, "Tag/Brand");
-    s.set_text(tag, "Label", "Marlow Plus");
+    s.set_text(tag, "Label", "FDE2E Plus");
     s.vicon(profile, Ic::ChevronRight, 18.0, Cl::T(Tok::Faint));
     let _ = av;
 

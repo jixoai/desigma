@@ -1,52 +1,7 @@
-# Trademark policy
+# 品牌与项目入口
 
-The **desigma** name and the desigma logo and icon (the "Marks") are trademarks of
-DeepFounder ([deepfounder.ai](https://deepfounder.ai)). The code is open source under
-MIT OR Apache-2.0, but those licenses cover the code only: they do not grant any right to
-use the Marks (Apache-2.0, section 6, says so explicitly).
+本仓库维护的产品名称为 **FDE2E Desigma**，对外品牌为 **FDE2E™**，由 FDE2E（昭智羽名(厦门)科技有限公司）维护。
 
-This policy explains what you can do with the Marks without asking. It exists so that
-people can trust that something called "desigma" comes from this project.
+产品使用本仓库的 FDE2E 图标。项目介绍、源码与问题反馈统一指向 [jixoai/desigma](https://github.com/jixoai/desigma)，本仓库未公布其他联系方式或线上域名。
 
-## You may, without asking
-
-- **Refer to the project truthfully**: "built with desigma", "a plugin for desigma",
-  "compatible with desigma files", "a fork of desigma", in articles, talks, tutorials,
-  reviews and videos.
-- **Redistribute unmodified official builds** under the desigma name, for example in a
-  Linux distribution or package manager, as long as you do not change the code (packaging
-  changes needed to build or install are fine).
-- **Use the name in a project or community that is about desigma**, as long as it is clear
-  it is not run by the desigma project (for example "Unofficial desigma tips").
-
-## You may not, without written permission
-
-- **Name a fork, modified build or derived product "desigma"**, or anything confusingly
-  similar ("Desigma Pro", "desigma-plus", "Desygma"). A fork must use a different name,
-  logo and icon. You may still say it is "based on desigma".
-- **Use the logo or icon** for a fork or another product, or in a way that suggests
-  endorsement.
-- **Imply that DeepFounder or the desigma project endorses, sponsors or supports** your
-  product, service, fork or company.
-- **Use the Marks in a company, product, domain or app-store name**, or in paid
-  advertising keywords, for something that is not the official desigma.
-- **Distribute builds that bundle malware, ads or tracking** under the desigma name, or
-  that otherwise misrepresent what the software does.
-
-## Forks
-
-Forking is welcome; that is what the licenses are for. When you publish a fork:
-
-1. Pick a new name and replace the logo and icon (`assets/icon/`, the window title, the
-   app bundle and installer names).
-2. Keep the copyright notices and license files, as MIT and Apache-2.0 require.
-3. You may describe it as "a fork of desigma" or "based on desigma".
-
-## Questions and permission
-
-To ask for permission or report misuse, open an issue on
-[deepfounder-ai/desigma](https://github.com/deepfounder-ai/desigma) or contact DeepFounder
-through [deepfounder.ai](https://deepfounder.ai).
-
-This policy may be updated; the version in the main branch of the repository is the
-current one.
+第三方软件名称仅用于说明来源、兼容格式或依赖；其权利归各权利人所有。项目软件许可不授予第三方商标许可。原上游政策与来源记录见 [FORK.md](FORK.md)。

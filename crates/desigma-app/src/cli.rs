@@ -15,7 +15,7 @@ pub struct Options {
     pub select: Option<String>,
     /// Open a menu after loading: `main`, `main/File`, `shape`, `palette` (for screenshots).
     pub menu: Option<String>,
-    /// Built-in test document instead of the demo (`showcase`: the Marlow product-design file the README screenshots use; `proto-vars`: a shop prototype with variables; `no-selection`: the Figma page-level reference;
+    /// Built-in test document instead of the demo (`showcase`: the FDE2E product-design concept; `proto-vars`: a shop prototype with variables; `no-selection`: the Figma page-level reference;
     /// `variables`; `comments`: Figma comments imported, one thread open in comment mode;
     /// `board`: a sample whiteboard; `board-empty`: an empty one).
     pub fixture: Option<String>,

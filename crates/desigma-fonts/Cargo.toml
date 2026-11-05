@@ -1,6 +1,6 @@
 [package]
 name = "desigma-fonts"
-description = "Bundled and on-demand open-source fonts for desigma (Inter bundled, Fontsource fetch + disk cache)"
+description = "Bundled and on-demand open-source fonts for FDE2E Desigma (Inter bundled, Fontsource fetch + disk cache)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 //! The built-in showcase document (`--fixture showcase`): a small, invented mobile-banking product
-//! ("Marlow") drawn entirely with desigma's own nodes, so the README screenshots show real design
+//! ("FDE2E") drawn entirely with desigma's own nodes, so the README screenshots show real design
 //! work instead of a test fixture.
 //!
 //! * **Mobile**: four 390 x 844 screens (welcome, home, spending, settings) in real auto layout,
@@ -36,7 +36,7 @@ use std::collections::BTreeMap;
 pub const FIXTURE: &str = "showcase";
 /// Fixture of the animated onboarding flow (`--fixture motion`, also what a bare `--motion` opens).
 pub const MOTION_FIXTURE: &str = "motion";
-pub const NAME: &str = "Marlow - Mobile banking";
+pub const NAME: &str = "FDE2E - Banking concept";
 
 /// Theme tokens: a name in the "Theme" variable collection with a Light and a Dark value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -734,7 +734,7 @@ pub fn document() -> Document {
 
 /// Just the Motion page: an animated onboarding flow (`--motion` and `--fixture motion`).
 pub fn motion_document() -> Document {
-    let mut s = S::with_pages("Marlow - Motion", &[("Motion", 0xE4E6F0)]);
+    let mut s = S::with_pages("FDE2E - Motion", &[("Motion", 0xE4E6F0)]);
     let m = motion::build(&mut s);
     for id in m.all() {
         s.relayout(id);
@@ -748,15 +748,15 @@ pub fn motion_document() -> Document {
 pub fn library_samples() -> Vec<Document> {
     let full = document();
     let mut web = document();
-    web.name = "Marlow - Web dashboard".into();
+    web.name = "FDE2E - Dashboard concept".into();
     web.pages.rotate_left(1);
     let mut kit = document();
-    kit.name = "Marlow - Design system".into();
+    kit.name = "FDE2E - Design system".into();
     kit.pages.rotate_left(2);
     let mut full = full;
-    full.name = "Marlow - Mobile banking".into();
+    full.name = "FDE2E - Banking concept".into();
     let mut board = crate::board::demo::document();
-    board.name = "Marlow - Launch brainstorm".into();
+    board.name = "FDE2E - Launch brainstorm".into();
     vec![full, web, kit, board, motion_document()]
 }
 
@@ -764,7 +764,7 @@ pub fn library_samples() -> Vec<Document> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn seed_library(root: &std::path::Path) -> Result<(), String> {
     let lib = desigma_library::Library::open(root).map_err(|e| e.to_string())?;
-    let project = lib.create_project("Marlow").map_err(|e| e.to_string())?;
+    let project = lib.create_project("FDE2E").map_err(|e| e.to_string())?;
     let names = ["Mobile banking app", "Web dashboard", "Design system", "Launch brainstorm", "Motion onboarding"];
     for (doc, name) in library_samples().into_iter().zip(names) {
         let entry = lib.create_file(&project.id, None, name, &doc).map_err(|e| e.to_string())?;

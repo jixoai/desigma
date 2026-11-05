@@ -1,6 +1,6 @@
-# Browser editor (WebAssembly)
+# FDE2E Desigma · Browser editor
 
-This fork maintains Desigma as a static WebAssembly browser application using the original shared Rust engines. Document editing, layout, text shaping, GPU/CPU rendering, import, export, history and agent operations run on the user's device. Serving the files needs no application server, account, native helper or loopback bridge.
+FDE2E Desigma runs as a static WebAssembly browser application using the original shared Rust engines. Document editing, layout, text shaping, GPU/CPU rendering, import, export, history and agent operations run on the user's device. Serving the files needs no application server, account, native helper or loopback bridge.
 
 The `jixoai/desigma` fork maintains this work on `browser-wasm`, with `main` tracking the original project. See [upstream synchronization](upstream-sync.md) for the scheduled draft-PR workflow and local merge process.
 
@@ -108,7 +108,7 @@ WebMCP exposes the same flows through `desigma_create_collaboration_link` and `d
 
 Optional `ice_servers` supply STUN/TURN where direct networking is unavailable; configure each device. Signaling alone does not traverse every NAT or firewall. No public TURN service is selected. Native iroh/QUIC tickets remain incompatible with browser tickets. Passwords, host approval and viewer/editor roles continue through the existing collaboration core. Same-machine WebRTC with BroadcastChannel disabled is tested; remote internet connectivity still needs validation with your deployment and networks.
 
-Plugins use opaque-origin sandboxed iframes with declared network origins, isolated local storage and a scoped SVG insertion bridge. Session identity and source window are checked; switching documents or stopping the plugin revokes access. Existing schema-2 bundles from the repository registry work; arbitrary native plugin execution is not introduced.
+Plugins use opaque-origin sandboxed iframes with declared network origins, isolated local storage and a scoped SVG insertion bridge. Session identity and source window are checked; switching documents or stopping the plugin revokes access. Install **FDE2E Shapes** from the prefilled Plugins form; it ships with the static build and installs offline. Other schema-2 bundles must use `https://github.com/jixoai/desigma/blob/<ref>/plugins/<name>/manifest.json` (or the corresponding raw URL). The default Shapes URL resolves to the package included in the current build; a pinned commit URL fetches that exact revision. Arbitrary native plugin execution is not introduced.
 
 Native OS operations have browser equivalents where appropriate: clipboard APIs, browser downloads, browser tabs, browser storage and service-worker updates. Native desktop installation, OS integration, local TCP listeners and automatic desktop binary updates have no browser equivalent and are excluded. Video codecs retain the pure-Rust build's existing support; optional native OpenH264 is not compiled into WASM.
 
@@ -119,6 +119,7 @@ npm ci --prefix web --ignore-scripts
 npm test --prefix web
 cargo clippy --locked -p desigma-app --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
 python3 scripts/sync-upstream.py scope
+python3 scripts/check-branding.py
 python3 -m unittest discover -s scripts/tests -v
 cargo fmt --all --check
 ```

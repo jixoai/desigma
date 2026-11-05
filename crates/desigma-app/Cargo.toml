@@ -1,6 +1,6 @@
 [package]
 name = "desigma-app"
-description = "desigma desktop editor"
+description = "FDE2E Desigma browser design editor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
