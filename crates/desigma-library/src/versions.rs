@@ -20,6 +20,7 @@
 use crate::store::{now_ms, write_atomic};
 use crate::{Library, LibraryError, Result};
 use desigma_doc::Document;
+use desigma_platform::PathExt as _;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
@@ -111,17 +112,17 @@ impl Library {
 
     fn read_index(&self, file: &str) -> Vec<FileVersion> {
         let dir = self.versions_dir(file);
-        if let Some(v) = std::fs::read_to_string(dir.join(INDEX)).ok().and_then(|t| serde_json::from_str::<Vec<FileVersion>>(&t).ok()) {
+        if let Some(v) = desigma_platform::fs::read_to_string(dir.join(INDEX)).ok().and_then(|t| serde_json::from_str::<Vec<FileVersion>>(&t).ok()) {
             return v;
         }
         // Rebuild from the snapshots that are there.
-        let Ok(rd) = std::fs::read_dir(&dir) else { return vec![] };
+        let Ok(rd) = desigma_platform::fs::read_dir(&dir) else { return vec![] };
         rd.flatten()
             .filter_map(|e| {
                 let path = e.path();
                 let n: u32 = path.file_name()?.to_str()?.strip_suffix(".desigma")?.parse().ok()?;
                 let meta = e.metadata().ok()?;
-                let created = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as u64;
+                let created = meta.modified().ok()?.duration_since(web_time::UNIX_EPOCH).ok()?.as_millis() as u64;
                 Some(FileVersion { n, label: None, description: None, auto: true, created, size: meta.len() })
             })
             .collect()
@@ -161,10 +162,10 @@ impl Library {
         let mut entries = self.read_index(file_id);
         let clean = |s: Option<String>| s.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
         let json = doc.to_json()?;
-        let on_disk_max = std::fs::read_dir(self.versions_dir(file_id))
+        let on_disk_max = desigma_platform::fs::read_dir(self.versions_dir(file_id))
             .map(|rd| rd.flatten().filter_map(|e| e.file_name().to_str()?.strip_suffix(".desigma")?.parse::<u32>().ok()).max().unwrap_or(0))
             .unwrap_or(0);
-        let trashed_max = std::fs::read_dir(self.path("trash"))
+        let trashed_max = desigma_platform::fs::read_dir(self.path("trash"))
             .map(|rd| rd.flatten().filter_map(|e| e.file_name().to_str()?.strip_prefix(&format!("{file_id}-v"))?.parse::<u32>().ok()).max().unwrap_or(0))
             .unwrap_or(0);
         let n = entries.iter().map(|e| e.n).max().unwrap_or(0).max(on_disk_max).max(trashed_max) + 1;
@@ -175,7 +176,7 @@ impl Library {
             let doomed = retention(&entries, now);
             for d in &doomed {
                 if *d != n {
-                    let _ = std::fs::remove_file(self.version_path(file_id, *d));
+                    let _ = desigma_platform::fs::remove_file(self.version_path(file_id, *d));
                 }
             }
             entries.retain(|e| e.n == n || !doomed.contains(&e.n));
@@ -188,13 +189,13 @@ impl Library {
     pub fn list_versions(&self, file_id: &str) -> Vec<FileVersion> {
         let _g = lock();
         let mut v = self.read_index(file_id);
-        v.retain(|e| self.version_path(file_id, e.n).exists());
+        v.retain(|e| self.version_path(file_id, e.n).v_exists());
         v.sort_by(|a, b| b.created.cmp(&a.created).then(b.n.cmp(&a.n)));
         v
     }
 
     pub fn load_version(&self, file_id: &str, n: u32) -> Result<Document> {
-        let text = std::fs::read_to_string(self.version_path(file_id, n)).map_err(|e| {
+        let text = desigma_platform::fs::read_to_string(self.version_path(file_id, n)).map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 LibraryError::NotFound(format!("version {n} of {file_id}"))
             } else {
@@ -223,11 +224,11 @@ impl Library {
         let mut entries = self.read_index(file_id);
         let i = entries.iter().position(|e| e.n == n).ok_or_else(|| LibraryError::NotFound(format!("version {n} of {file_id}")))?;
         let dir = self.path("trash").join(format!("{file_id}-v{n}"));
-        std::fs::create_dir_all(&dir)?;
+        desigma_platform::fs::create_dir_all(&dir)?;
         write_atomic(&dir.join("version.json"), serde_json::to_string_pretty(&entries[i])?.as_bytes())?;
         let src = self.version_path(file_id, n);
-        if src.exists() {
-            std::fs::rename(src, dir.join("version.desigma"))?;
+        if src.v_exists() {
+            desigma_platform::fs::rename(src, dir.join("version.desigma"))?;
         }
         entries.remove(i);
         self.write_index(file_id, &entries)

@@ -5,7 +5,9 @@
 //! worker thread. Results are registered with the renderer on the UI thread.
 
 use desigma_doc::Document;
-use desigma_fonts::{ensure_fonts_with, FontCache, FontReport, FontRequest};
+#[cfg(not(target_arch = "wasm32"))]
+use desigma_fonts::{ensure_fonts_with, FontCache};
+use desigma_fonts::{FontReport, FontRequest};
 use std::collections::HashSet;
 use std::sync::mpsc::{channel, Receiver};
 
@@ -48,11 +50,17 @@ impl FontLoader {
                 std::iter::once(family.as_str()).chain(alternatives.iter().copied()).any(installed_exactly)
             })
             .collect();
+        #[cfg(not(target_arch = "wasm32"))]
         let doc = doc.clone_without_images();
         let (tx, rx) = channel();
-        std::thread::spawn(move || {
+        #[cfg(not(target_arch = "wasm32"))]
+        desigma_platform::spawn(move || {
             let report = ensure_fonts_with(&doc, &FontCache::new(), |family| installed.contains(family));
             let _ = tx.send(report);
+        });
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(async move {
+            let _ = tx.send(crate::web::fonts::load(requests, installed).await);
         });
         self.pending = Some(rx);
     }

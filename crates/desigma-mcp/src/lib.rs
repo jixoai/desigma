@@ -1,3 +1,4 @@
+pub mod catalog;
 pub mod engine;
 #[cfg(feature = "server")]
 pub mod live;

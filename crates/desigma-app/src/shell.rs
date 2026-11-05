@@ -10,6 +10,7 @@ use crate::panels::menus::{self, Action};
 use crate::panels::{self, left, rail, right, toolbar};
 use crate::theme;
 use crate::widgets;
+use desigma_platform::PathExt as _;
 use egui::{Align2, Context, Event, Key, Pos2, Rect, Vec2};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -43,10 +44,11 @@ struct Shot {
 }
 
 pub struct Shell {
-    app: App,
+    pub(crate) app: App,
     shot: Option<Shot>,
     title: String,
     /// Listens for links and files handed over by a second launch; `None` when another editor owns it.
+    #[cfg(not(target_arch = "wasm32"))]
     _instance: Option<crate::instance::Instance>,
 }
 
@@ -54,7 +56,7 @@ pub struct Shell {
 /// put one level too high, which the home screen would otherwise ignore without a word (#35).
 pub(crate) fn stray_projects_dir(library: &std::path::Path) -> Option<PathBuf> {
     let stray = library.parent()?.join("projects");
-    (stray.is_dir() && stray != library.join("projects")).then_some(stray)
+    (stray.v_is_dir() && stray != library.join("projects")).then_some(stray)
 }
 
 impl Shell {
@@ -94,9 +96,11 @@ impl Shell {
             }
         }
         // Links and files from a second launch (and, on macOS, from Finder and the browser)
+        #[cfg(not(target_arch = "wasm32"))]
         crate::instance::set_context(&cc.egui_ctx);
         #[cfg(target_os = "macos")]
         crate::macos::register();
+        #[cfg(not(target_arch = "wasm32"))]
         if launch {
             match crate::instance::Instance::start(&crate::instance::default_dir(), crate::instance::push) {
                 Ok(i) => shell._instance = i,
@@ -291,7 +295,13 @@ impl Shell {
             requested_at: None,
             requests: 0,
         });
-        Self { app, shot, title: String::new(), _instance: None }
+        Self {
+            app,
+            shot,
+            title: String::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            _instance: None,
+        }
     }
 
     fn drive_screenshot(&mut self, ctx: &Context) {
@@ -314,7 +324,7 @@ impl Shell {
                     let want = ((shot.size.0 as f32 * shot.scale).round() as u32, (shot.size.1 as f32 * shot.scale).round() as u32);
                     let buf = if (w, h) != want { image::imageops::resize(&buf, want.0, want.1, image::imageops::FilterType::Lanczos3) } else { buf };
                     if let Some(dir) = shot.path.parent() {
-                        let _ = std::fs::create_dir_all(dir);
+                        let _ = desigma_platform::fs::create_dir_all(dir);
                     }
                     match buf.save(&shot.path) {
                         Ok(()) => SHOT_OK.store(true, Ordering::SeqCst),
@@ -607,11 +617,15 @@ impl Shell {
         p.rect_filled(r, theme::cr(theme::TOAST_RADIUS), theme::BG_MENU);
         p.circle_filled(Pos2::new(r.left() + 16.0, r.center().y), 4.0, if t.error { theme::DANGER } else { theme::BG_BRAND });
         p.text(Pos2::new(r.left() + 28.0, r.center().y), Align2::LEFT_CENTER, text, font, theme::TEXT);
-        ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+        ui.ctx().request_repaint_after(web_time::Duration::from_millis(200));
     }
 }
 
 impl eframe::App for Shell {
+    #[cfg(target_arch = "wasm32")]
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
+    }
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         [0.17, 0.17, 0.17, 1.0]
     }
@@ -619,6 +633,18 @@ impl eframe::App for Shell {
     /// Tab belongs to the text session (it nests list items): take it out of the input before egui
     /// uses it to move keyboard focus between widgets.
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        #[cfg(target_arch = "wasm32")]
+        for file in &mut raw.dropped_files {
+            if file.path.is_none() {
+                if let Some(bytes) = &file.bytes {
+                    let name = std::path::Path::new(&file.name).file_name().unwrap_or_default();
+                    let path = std::path::PathBuf::from("/imports").join(name);
+                    if desigma_platform::fs::write(&path, bytes).is_ok() {
+                        file.path = Some(path);
+                    }
+                }
+            }
+        }
         if self.app.plugins.open {
             return;
         }
@@ -644,9 +670,10 @@ impl eframe::App for Shell {
         self.app.poll_external_change(ctx);
         if self.app.ext_watch.is_some() {
             // Keep polling even while nothing else asks for frames.
-            ctx.request_repaint_after(std::time::Duration::from_millis(1000));
+            ctx.request_repaint_after(web_time::Duration::from_millis(1000));
         }
         self.app.poll_bridge();
+        #[cfg(not(target_arch = "wasm32"))]
         self.handle_opens(ctx);
         crate::collab::pump(&mut self.app, ctx);
     }
@@ -654,7 +681,7 @@ impl eframe::App for Shell {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.app.poll_fonts();
         if self.app.fonts.is_loading() {
-            ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+            ui.ctx().request_repaint_after(web_time::Duration::from_millis(100));
         }
         self.draw(ui);
     }
@@ -664,6 +691,7 @@ impl Shell {
     /// Links and files handed over by a second launch or the OS (see `instance.rs`): a link
     /// opens Join session prefilled, a file opens like the CLI path argument, and the window
     /// comes to the front.
+    #[cfg(not(target_arch = "wasm32"))]
     fn handle_opens(&mut self, ctx: &Context) {
         let opens = crate::instance::take();
         if opens.is_empty() {
@@ -696,7 +724,7 @@ impl Shell {
         }
         for (nth, f) in files.iter().filter(|f| is_svg(f)).enumerate() {
             let text = match (&f.path, &f.bytes) {
-                (Some(p), _) => std::fs::read_to_string(p).map_err(|e| format!("Cannot read {}: {e}", p.display())),
+                (Some(p), _) => desigma_platform::fs::read_to_string(p).map_err(|e| format!("Cannot read {}: {e}", p.display())),
                 (None, Some(b)) => String::from_utf8(b.to_vec()).map_err(|_| "The SVG is not valid UTF-8".to_string()),
                 (None, None) => continue,
             };

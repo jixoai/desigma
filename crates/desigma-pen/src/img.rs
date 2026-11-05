@@ -1,5 +1,6 @@
 //! Image fills: `data:` URIs and files next to the `.pen`.
 
+use desigma_platform::PathExt as _;
 use std::path::{Component, Path, PathBuf};
 
 /// Largest image read from disk or decoded from a `data:` URI.
@@ -22,16 +23,16 @@ fn read_file(url: &str, base_dir: Option<&Path>) -> Result<Vec<u8>, String> {
         return Err(format!("image {url} points outside the .pen's folder"));
     }
     let path: PathBuf = base.join(rel);
-    let canon = path.canonicalize().map_err(|e| format!("image {url} cannot be read: {e}"))?;
-    let base_canon = base.canonicalize().map_err(|e| format!("image {url} cannot be read: {e}"))?;
+    let canon = path.v_canonicalize().map_err(|e| format!("image {url} cannot be read: {e}"))?;
+    let base_canon = base.v_canonicalize().map_err(|e| format!("image {url} cannot be read: {e}"))?;
     if !canon.starts_with(&base_canon) {
         return Err(format!("image {url} points outside the .pen's folder"));
     }
-    let len = std::fs::metadata(&canon).map_err(|e| format!("image {url} cannot be read: {e}"))?.len();
+    let len = desigma_platform::fs::metadata(&canon).map_err(|e| format!("image {url} cannot be read: {e}"))?.len();
     if len > MAX_IMAGE_BYTES {
         return Err(format!("image {url} is too large"));
     }
-    std::fs::read(&canon).map_err(|e| format!("image {url} cannot be read: {e}"))
+    desigma_platform::fs::read(&canon).map_err(|e| format!("image {url} cannot be read: {e}"))
 }
 
 fn decode_data_uri(rest: &str) -> Result<Vec<u8>, String> {

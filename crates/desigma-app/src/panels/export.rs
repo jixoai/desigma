@@ -4,6 +4,8 @@
 use crate::app::App;
 use crate::icons::{self, Icon};
 use crate::theme;
+#[cfg(target_arch = "wasm32")]
+use crate::web::clipboard as arboard;
 use crate::widgets::field;
 use crate::widgets::menu::{dropdown, popup_menu, MenuItem, MenuResult};
 use crate::widgets::{self, elide};
@@ -378,7 +380,7 @@ fn anim_block(app: &mut App, ui: &mut Ui, x0: f32, top: f32, node: NodeId) -> f3
         if widgets::icon_button(ui, cancel, "anim-export-cancel", Icon::Close, false, "Cancel export").clicked() {
             app.canvas.motion.export.cancel();
         }
-        ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+        ui.ctx().request_repaint_after(web_time::Duration::from_millis(100));
     } else {
         let resp = ui.interact(btn, ui.id().with("anim-export-btn"), Sense::click());
         ui.painter().rect_filled(btn, theme::cr(theme::RADIUS_MEDIUM), if resp.hovered() { theme::BG_TERTIARY } else { theme::BG_SECONDARY });
@@ -475,42 +477,56 @@ pub fn run_export(app: &mut App, ids: &[NodeId]) {
         app.show_toast(if skipped_pdf { "PDF export is not supported" } else { "Nothing to export" }, true);
         return;
     }
-    let mut written = Vec::new();
-    if jobs.len() == 1 {
-        let (file, id, s) = &jobs[0];
-        let Some(path) = rfd::FileDialog::new().add_filter(s.format.label(), &[s.format.extension()]).set_file_name(file).save_file() else { return };
-        let bytes = s.render(&app.doc, *id);
-        if bytes.is_empty() {
-            app.show_toast("Nothing to export", true);
-            return;
+    #[cfg(target_arch = "wasm32")]
+    {
+        for (file, id, setting) in jobs {
+            let size = app.doc.get(id).map(|n| n.size).unwrap_or_default();
+            crate::web::queue_export(
+                &app.doc,
+                "desigma_export_asset",
+                serde_json::json!({"node_id":id.0,"format":setting.format.extension(),"scale":setting.scale.factor(size),"path":format!("/downloads/{file}")}),
+            );
         }
-        match std::fs::write(&path, bytes) {
-            Ok(()) => written.push(path),
-            Err(e) => {
-                app.show_toast(format!("Export failed: {e}"), true);
-                return;
-            }
-        }
-    } else {
-        let Some(dir) = rfd::FileDialog::new().set_title("Choose export folder").pick_folder() else { return };
-        for (file, id, s) in &jobs {
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let mut written = Vec::new();
+        if jobs.len() == 1 {
+            let (file, id, s) = &jobs[0];
+            let Some(path) = rfd::FileDialog::new().add_filter(s.format.label(), &[s.format.extension()]).set_file_name(file).save_file() else { return };
             let bytes = s.render(&app.doc, *id);
             if bytes.is_empty() {
-                continue;
+                app.show_toast("Nothing to export", true);
+                return;
             }
-            let path = dir.join(file);
-            match std::fs::write(&path, bytes) {
+            match desigma_platform::fs::write(&path, bytes) {
                 Ok(()) => written.push(path),
                 Err(e) => {
                     app.show_toast(format!("Export failed: {e}"), true);
                     return;
                 }
             }
+        } else {
+            let Some(dir) = rfd::FileDialog::new().set_title("Choose export folder").pick_folder() else { return };
+            for (file, id, s) in &jobs {
+                let bytes = s.render(&app.doc, *id);
+                if bytes.is_empty() {
+                    continue;
+                }
+                let path = dir.join(file);
+                match desigma_platform::fs::write(&path, bytes) {
+                    Ok(()) => written.push(path),
+                    Err(e) => {
+                        app.show_toast(format!("Export failed: {e}"), true);
+                        return;
+                    }
+                }
+            }
         }
-    }
-    match written.as_slice() {
-        [one] => app.show_toast(format!("Exported {}", one.display()), false),
-        many => app.show_toast(format!("Exported {} files", many.len()), false),
+        match written.as_slice() {
+            [one] => app.show_toast(format!("Exported {}", one.display()), false),
+            many => app.show_toast(format!("Exported {} files", many.len()), false),
+        }
     }
 }
 

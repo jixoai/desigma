@@ -221,6 +221,16 @@ pub fn validate_document(doc: &Document) -> Result<(), String> {
     if doc.nodes.len() > 100_000 {
         return Err("Document exceeds the 100000 layer limit".into());
     }
+    // Build reverse edges once. Checking parent.children.contains(id) for every sibling
+    // made flat imports and atomic batches quadratic in the number of layers.
+    let mut parents = std::collections::HashMap::with_capacity(doc.nodes.len());
+    for (id, node) in &doc.nodes {
+        for child in &node.children {
+            if parents.insert(*child, *id).is_some() || doc.get(*child).is_none_or(|n| n.parent != Some(*id)) {
+                return Err("Document has duplicate or inconsistent child links".into());
+            }
+        }
+    }
     for (id, node) in &doc.nodes {
         if *id != node.id || id.0 == 0 {
             return Err("Document has inconsistent node IDs".into());
@@ -234,17 +244,14 @@ pub fn validate_document(doc: &Document) -> Result<(), String> {
             let ancestor = doc.get(parent).ok_or("Document references a missing parent")?;
             current = ancestor.parent;
         }
-        let mut children = BTreeSet::new();
-        for child in &node.children {
-            if !children.insert(child) || doc.get(*child).is_none_or(|n| n.parent != Some(*id)) {
-                return Err("Document has duplicate or inconsistent child links".into());
-            }
-        }
         if let Some(parent) = node.parent {
-            if !doc.get(parent).is_some_and(|n| n.children.contains(id)) {
+            if parents.get(id) != Some(&parent) {
                 return Err("Document has inconsistent parent links".into());
             }
         }
+    }
+    if doc.pages.iter().collect::<BTreeSet<_>>().len() != doc.pages.len() {
+        return Err("Document contains duplicate page roots".into());
     }
     if doc.pages.iter().any(|id| doc.get(*id).is_none_or(|n| n.parent.is_some() || !matches!(n.kind, NodeKind::Page { .. }))) {
         return Err("Document has invalid page roots".into());
@@ -287,32 +294,32 @@ pub fn export_image<H: Host>(host: &H, node_id: u64, scale: f32) -> Result<(Vec<
 pub fn write_design(path: &std::path::Path, bytes: &[u8], overwrite: bool) -> Result<(), String> {
     use std::io::Write;
     if !overwrite {
-        let mut file = std::fs::OpenOptions::new()
+        let mut file = desigma_platform::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(path)
             .map_err(|e| format!("Cannot create file (choose an unused .desigma filename, or pass overwrite=true): {e}"))?;
         if let Err(e) = file.write_all(bytes).and_then(|_| file.sync_all()) {
             drop(file);
-            let _ = std::fs::remove_file(path);
+            let _ = desigma_platform::fs::remove_file(path);
             return Err(format!("Cannot save design: {e}"));
         }
         return Ok(());
     }
-    if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink() || !m.is_file()) {
+    if desigma_platform::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink() || !m.is_file()) {
         return Err("Cannot overwrite: the path exists and is not a regular file".into());
     }
     let dir = path.parent().ok_or("Save path needs a parent directory")?;
     let name = path.file_name().ok_or("Save path needs a filename")?.to_string_lossy();
-    let tmp = dir.join(format!(".{name}.{}.tmp", std::process::id()));
+    let tmp = dir.join(format!(".{name}.{}.tmp", desigma_platform::process_id()));
     let res = (|| {
-        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&tmp)?;
+        let mut file = desigma_platform::fs::OpenOptions::new().write(true).create_new(true).open(&tmp)?;
         file.write_all(bytes)?;
         file.sync_all()?;
-        std::fs::rename(&tmp, path)
+        desigma_platform::fs::rename(&tmp, path)
     })();
     if let Err(e) = res {
-        let _ = std::fs::remove_file(&tmp);
+        let _ = desigma_platform::fs::remove_file(&tmp);
         return Err(format!("Cannot save design: {e}"));
     }
     Ok(())
@@ -931,6 +938,28 @@ pub fn tools() -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn graph_validation_checks_both_directions_and_duplicate_children() {
+        let mut engine = Engine::default();
+        let page = engine.doc.pages[0];
+        let id = engine.doc.alloc_id();
+        engine.doc.insert(page, Node::rectangle(id, Rect::new(0.0, 0.0, 10.0, 10.0))).unwrap();
+        validate_document(&engine.doc).unwrap();
+        let mut orphan = engine.doc.clone();
+        orphan.get_mut(page).unwrap().children.clear();
+        assert!(validate_document(&orphan).is_err());
+        let mut duplicate = engine.doc.clone();
+        duplicate.get_mut(page).unwrap().children.push(id);
+        assert!(validate_document(&duplicate).is_err());
+        let mut cycle = engine.doc.clone();
+        cycle.get_mut(page).unwrap().parent = Some(id);
+        cycle.get_mut(id).unwrap().children.push(page);
+        assert!(validate_document(&cycle).is_err());
+        let mut missing = engine.doc.clone();
+        missing.get_mut(id).unwrap().parent = Some(NodeId(999));
+        assert!(validate_document(&missing).is_err());
+    }
 
     #[test]
     fn variable_inspection_and_codegen_resolve_inherited_cross_collection_aliases() {

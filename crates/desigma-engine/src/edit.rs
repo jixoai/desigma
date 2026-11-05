@@ -114,9 +114,10 @@ impl Tx {
         }
         let cmd = if all.len() == 1 { all.pop().unwrap() } else { Command::Batch(all) };
         // Edits to a main component also update its instances, in the same undo step.
-        let mut trial = doc.clone();
+        let mut trial = doc.clone_without_images();
         let cmd = crate::components::with_sync(&mut trial, cmd);
         hist.exec(&mut trial, cmd)?;
+        trial.images = std::mem::take(&mut doc.images);
         *doc = trial;
         Ok(true)
     }
@@ -126,6 +127,24 @@ impl Tx {
 mod tests {
     use super::*;
     use desigma_doc::{Rect, Vec2};
+
+    #[test]
+    fn commit_preserves_embedded_assets_without_copying_their_bytes() {
+        let mut doc = Document::new("Assets");
+        let page = doc.add_page("P");
+        let id = doc.alloc_id();
+        doc.insert(page, Node::rectangle(id, Rect::new(0.0, 0.0, 20.0, 20.0))).unwrap();
+        doc.images.insert("photo".into(), vec![1, 2, 3, 4]);
+        let ptr = doc.images["photo"].as_ptr();
+        let mut tx = Tx::new();
+        tx.ed.node(&mut doc, id).unwrap().name = "Changed".into();
+        let mut history = History::default();
+        assert!(tx.commit(&mut doc, &mut history).unwrap());
+        assert_eq!(doc.images["photo"], vec![1, 2, 3, 4]);
+        assert_eq!(doc.images["photo"].as_ptr(), ptr);
+        history.undo(&mut doc).unwrap();
+        assert_eq!(doc.images["photo"].as_ptr(), ptr);
+    }
 
     #[test]
     fn tx_structural_plus_props_undo_together() {

@@ -1,0 +1,11 @@
+{
+  "name": "desigma-browser",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 ../scripts/build-web.py",
+    "serve": "python3 ../scripts/serve-web.py",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": { "fake-indexeddb": "^6.2.5" }
+}

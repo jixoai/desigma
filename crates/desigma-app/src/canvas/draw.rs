@@ -9,7 +9,7 @@ use crate::theme;
 use crate::util::*;
 use desigma_doc::NodeKind;
 use egui::{Align2, Color32, Painter, Pos2, Stroke, StrokeKind, Vec2 as EV};
-use std::time::Duration;
+use web_time::Duration;
 
 fn sel_color(app: &App, id: NodeId) -> Color32 {
     match app.doc.get(id).map(|n| &n.kind) {

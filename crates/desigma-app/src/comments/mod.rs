@@ -218,7 +218,7 @@ impl App {
     }
 
     pub fn import_comments_file(&mut self, path: &std::path::Path) {
-        let result = std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| self.import_comments_text(&t));
+        let result = desigma_platform::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| self.import_comments_text(&t));
         match result {
             Ok(m) if m.threads + m.replies == 0 => self.show_toast("Those comments are already in this file", false),
             Ok(m) => {

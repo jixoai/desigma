@@ -8,17 +8,28 @@
 //! The API is synchronous for the egui UI thread: a tokio runtime lives inside [`Host`] / [`Guest`],
 //! commands are non-blocking, and events come out of `try_recv` / `drain`. Set a wake callback
 //! (`ctx.request_repaint()`) to be nudged when events arrive.
+#[cfg(not(target_arch = "wasm32"))]
 mod auth;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod frame;
+#[cfg(not(target_arch = "wasm32"))]
 mod guest;
+#[cfg(not(target_arch = "wasm32"))]
 mod host;
+#[cfg(not(target_arch = "wasm32"))]
 mod proto;
+#[cfg(not(target_arch = "wasm32"))]
 mod rt;
+#[cfg(not(target_arch = "wasm32"))]
 mod ticket;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use guest::{DisconnectReason, Guest, GuestEvent, GuestOptions};
+#[cfg(not(target_arch = "wasm32"))]
 pub use host::{generate_secret_key, Host, HostEvent, HostOptions};
+#[cfg(not(target_arch = "wasm32"))]
 pub use proto::PROTOCOL_VERSION;
+#[cfg(not(target_arch = "wasm32"))]
 pub use ticket::Ticket;
 
 /// ALPN of the collaboration protocol.
@@ -83,3 +94,8 @@ pub enum JoinError {
     #[error("protocol error: {0}")]
     Protocol(String),
 }
+
+#[cfg(target_arch = "wasm32")]
+mod web;
+#[cfg(target_arch = "wasm32")]
+pub use web::*;

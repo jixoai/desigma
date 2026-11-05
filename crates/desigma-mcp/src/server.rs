@@ -1,5 +1,6 @@
 //! Workspace-scoped file session exposed over the official MCP SDK.
 use crate::engine::Engine;
+use desigma_platform::PathExt as _;
 use rmcp::{model::*, service::RequestContext, ErrorData, RoleServer, ServerHandler};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -68,7 +69,7 @@ impl Session {
     /// for a running editor). Tests use this to avoid ever touching a real
     /// developer's editor, which the default `new` would otherwise do.
     pub fn with_discovery(root: &Path, discovery: Option<PathBuf>) -> Result<Self, String> {
-        let root = root.canonicalize().map_err(|e| format!("Cannot open workspace: {e}"))?;
+        let root = root.v_canonicalize().map_err(|e| format!("Cannot open workspace: {e}"))?;
         if !root.is_dir() {
             return Err("Workspace must be a directory".into());
         }
@@ -76,7 +77,7 @@ impl Session {
     }
 
     fn input_path(&self, path: &str) -> Result<PathBuf, String> {
-        let path = self.root.join(path).canonicalize().map_err(|e| format!("Cannot open path: {e}"))?;
+        let path = self.root.join(path).v_canonicalize().map_err(|e| format!("Cannot open path: {e}"))?;
         if !path.starts_with(&self.root) {
             return Err("Path must stay inside the configured workspace".into());
         }
@@ -92,7 +93,7 @@ impl Session {
             return Err("Save path must end in .desigma".into());
         }
         let parent =
-            requested.parent().ok_or("Save path needs a parent directory")?.canonicalize().map_err(|e| format!("Save directory must already exist: {e}"))?;
+            requested.parent().ok_or("Save path needs a parent directory")?.v_canonicalize().map_err(|e| format!("Save directory must already exist: {e}"))?;
         if !parent.starts_with(&self.root) {
             return Err("Path must stay inside the configured workspace".into());
         }
@@ -113,7 +114,7 @@ impl Session {
         let parent = requested
             .parent()
             .ok_or("Export path needs a parent directory")?
-            .canonicalize()
+            .v_canonicalize()
             .map_err(|e| format!("Export directory must already exist: {e}"))?;
         if !parent.starts_with(&self.root) {
             return Err("Path must stay inside the configured workspace".into());
@@ -195,7 +196,7 @@ impl Session {
     }
 
     fn stays_inside(&self, path: &Path) -> bool {
-        path.canonicalize().is_ok_and(|p| p.starts_with(&self.root))
+        path.v_canonicalize().is_ok_and(|p| p.starts_with(&self.root))
     }
 
     pub fn call(&mut self, name: &str, mut args: Value) -> Result<Value, String> {
@@ -338,20 +339,7 @@ impl DesigmaServer {
 }
 
 pub fn tools() -> Vec<Tool> {
-    let mut raw = crate::engine::tools();
-    for (name, description, properties, required) in [
-        ("desigma_open_file", "Open a .desigma, .fig, .pen (Pencil), SVG or Figma REST JSON file inside the workspace: in the editor when its agent bridge is on, otherwise into the isolated file session. Refuses while the session (or the editor) has unsaved edits; ask the user to save, or pass discard_changes=true to throw them away. Call desigma_list_files for the path.", json!({"path":{"type":"string"},"discard_changes":{"type":"boolean","default":false}}), vec!["path"]),
-        ("desigma_save_file", "Save the document as a .desigma file inside the workspace (in the editor: a copy; its own file path is unchanged). By default the file must not exist yet; pass overwrite=true to replace an existing .desigma file atomically, e.g. the `path` desigma_get_document reports. Parent directory must exist.", json!({"path":{"type":"string"},"overwrite":{"type":"boolean","default":false}}), vec!["path"]),
-        ("desigma_delete_page", "Delete a page and everything on it. Refuses to delete the last remaining page.", json!({"node_id":{"type":"integer","minimum":1}}), vec!["node_id"]),
-        ("desigma_new_document", "Start a blank document with one page. Refuses while the session (or the editor) has unsaved edits; ask the user to save, or pass discard_changes=true to throw them away.", json!({"name":{"type":"string","minLength":1,"maxLength":1024},"discard_changes":{"type":"boolean","default":false}}), vec!["name"]),
-    ] {
-        raw.push(json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":name != "desigma_save_file","idempotentHint":false,"openWorldHint":false}}));
-    }
-    let id = json!({"type":"integer","minimum":1,"description":"Desigma numeric node ID; obtain from list_nodes/get_document."});
-    raw.push(json!({"name":"desigma_list_files","description":"Design files this user can open. Each entry's path is inside the workspace and is valid for desigma_open_file. Library files are the Desigma library. shared/ is a copy of a file opened from outside the library, and only while the agent bridge is on.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
-    raw.push(json!({"name":"desigma_get_selection","description":"Layers currently selected in the running editor. Requires the editor's agent bridge; errors in a file session.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
-    raw.push(json!({"name":"desigma_select_nodes","description":"Select layers in the running editor and scroll/zoom to them (reveal=true). Requires the agent bridge.","inputSchema":{"type":"object","properties":{"node_ids":{"type":"array","items":id,"minItems":1,"maxItems":500},"reveal":{"type":"boolean","default":true}},"required":["node_ids"],"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}));
-    raw.into_iter().map(|v| serde_json::from_value(v).expect("valid built-in tool definition")).collect()
+    crate::catalog::tools().into_iter().map(|v| serde_json::from_value(v).expect("valid built-in tool definition")).collect()
 }
 
 impl ServerHandler for DesigmaServer {

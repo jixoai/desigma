@@ -11,6 +11,8 @@ default = ["net"]
 net = ["dep:ureq"]
 
 [dependencies]
+desigma-platform.workspace = true
+web-time.workspace = true
 desigma-doc.workspace = true
 dirs = "5"
 serde.workspace = true

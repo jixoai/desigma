@@ -17,7 +17,7 @@ use desigma_render::Viewport;
 use eframe::egui_wgpu;
 use egui::{Rect as ERect, Ui};
 use std::sync::Arc;
-use std::time::Duration;
+use web_time::Duration;
 
 /// Everything the rendered page texture depends on.
 #[derive(Clone, Copy, PartialEq)]
@@ -177,7 +177,7 @@ pub fn paint(app: &mut App, ui: &Ui, rect: ERect) -> bool {
         return false;
     }
     let rev = super::tiles::take_rev(app);
-    let start = std::time::Instant::now();
+    let start = web_time::Instant::now();
     let vp = Viewport { offset: app.view.offset, zoom: app.view.zoom, dpr: ppp };
     let page = app.page;
     let key = FrameKey { rev, page, offset: (vp.offset.x, vp.offset.y), zoom: vp.zoom, ppp, size, fonts: desigma_render::font_generation() };

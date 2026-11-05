@@ -1,0 +1,60 @@
+name: Browser WASM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.93.1"
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Check browser Rust
+        run: cargo clippy --locked -p desigma-app --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
+      - name: Test browser adapters
+        run: |
+          npm ci --prefix web --ignore-scripts
+          npm test --prefix web
+          npm ci --prefix web/signaling --ignore-scripts
+          npm test --prefix web/signaling
+      - name: Install matching bindings and optimizer
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+      - name: Build optimized static application
+        run: python3 scripts/build-web.py
+      - name: Check bundle budget
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('dist/build.json').read_text())
+          assert report['wasm_gzip_bytes'] < 12 * 1024 * 1024, report
+          tools = json.loads(Path('dist/tools.json').read_text())
+          assert len(tools) >= 58
+          assert len({tool['name'] for tool in tools}) == len(tools)
+          print(report)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desigma-browser
+          path: dist/

@@ -178,7 +178,7 @@ impl Drop for NetHost {
         // Dropping a Host waits (bounded) for the close frames; do it off the UI thread.
         if let Some(h) = self.0.take() {
             h.shutdown();
-            std::thread::spawn(move || drop(h));
+            desigma_platform::spawn(move || drop(h));
         }
     }
 }
@@ -235,7 +235,7 @@ impl Drop for NetGuest {
     fn drop(&mut self) {
         if let Some(g) = self.0.take() {
             g.leave();
-            std::thread::spawn(move || drop(g));
+            desigma_platform::spawn(move || drop(g));
         }
     }
 }

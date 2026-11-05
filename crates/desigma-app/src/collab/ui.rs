@@ -573,7 +573,7 @@ pub fn join_dialog(app: &mut App, ctx: &Context) {
         }
     }
     if j.connecting {
-        ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        ctx.request_repaint_after(web_time::Duration::from_millis(250));
     }
     app.collab.join = Some(j);
 }

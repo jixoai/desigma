@@ -835,7 +835,7 @@ impl App {
     pub fn open_path(&mut self, p: PathBuf) {
         // A variables-only JSON opened alongside a design merges into it.
         if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")) {
-            if let Ok(text) = std::fs::read_to_string(&p) {
+            if let Ok(text) = desigma_platform::fs::read_to_string(&p) {
                 // Figma REST comments (`/v1/files/:key/comments`) are merged the same way.
                 if crate::comments::import::is_comments_payload(&text) {
                     self.import_comments_file(&p);
@@ -922,14 +922,21 @@ impl App {
         };
         let name = self.doc.get(id).map(|n| n.name.clone()).unwrap_or_default();
         let Some(path) = io::pick_export(&name) else { return };
-        let png = desigma_export::export_png(&self.export_doc(), id, 1.0);
-        if png.is_empty() {
-            self.show_toast("Nothing to export", true);
-            return;
+        #[cfg(target_arch = "wasm32")]
+        {
+            crate::web::queue_export(&self.doc, "desigma_export_asset", serde_json::json!({"node_id":id.0,"format":"png","scale":1.0,"path":path}));
         }
-        match std::fs::write(&path, png) {
-            Ok(()) => self.show_toast(format!("Exported {}", path.display()), false),
-            Err(e) => self.show_toast(format!("Export failed: {e}"), true),
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let png = desigma_export::export_png(&self.export_doc(), id, 1.0);
+            if png.is_empty() {
+                self.show_toast("Nothing to export", true);
+                return;
+            }
+            match desigma_platform::fs::write(&path, png) {
+                Ok(()) => self.show_toast(format!("Exported {}", path.display()), false),
+                Err(e) => self.show_toast(format!("Export failed: {e}"), true),
+            }
         }
     }
 }

@@ -9,8 +9,8 @@ const HOUR: u64 = 60 * MIN;
 const DAY: u64 = 24 * HOUR;
 
 pub fn apply(app: &mut App, library: Option<PathBuf>) {
-    let root = library.unwrap_or_else(|| std::env::temp_dir().join(format!("desigma_version_history_shot_{}", std::process::id())));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = library.unwrap_or_else(|| desigma_platform::temp_dir().join(format!("desigma_version_history_shot_{}", desigma_platform::process_id())));
+    let _ = desigma_platform::fs::remove_dir_all(&root);
     app.attach_library(root);
     let Some(lib) = app.lib.clone() else { return };
     let Some(project) = lib.list_projects().first().map(|p| p.id.clone()) else { return };

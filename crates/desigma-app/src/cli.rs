@@ -256,7 +256,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Options, String> 
                 if o.file.is_some() {
                     return Err("only one file can be opened".into());
                 }
-                o.file = Some(url::Url::parse(s).ok().and_then(|u| u.to_file_path().ok()).ok_or_else(|| format!("invalid file URL {s}"))?);
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    o.file = Some(url::Url::parse(s).ok().and_then(|u| u.to_file_path().ok()).ok_or_else(|| format!("invalid file URL {s}"))?);
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    return Err("Use the browser file picker to open local files".into());
+                }
             }
             _ => {
                 if o.file.is_some() {

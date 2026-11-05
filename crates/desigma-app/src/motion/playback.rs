@@ -67,7 +67,7 @@ impl Playback {
             return self.render_rev;
         }
         if ui.enabled {
-            let start = std::time::Instant::now();
+            let start = web_time::Instant::now();
             if self.built != Some((doc_rev, page)) || self.player.is_none() {
                 self.player = Some(MotionPlayer::new(stored, page));
                 self.built = Some((doc_rev, page));

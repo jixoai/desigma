@@ -1,0 +1,7 @@
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: tools=(self)
+/pkg/*.wasm
+  Content-Type: application/wasm

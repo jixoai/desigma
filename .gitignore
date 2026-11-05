@@ -11,3 +11,7 @@
 
 # Private design files used for local import checks: never committed
 /reference/*.fig
+
+/web/node_modules/
+/web/signaling/node_modules/
+/scripts/__pycache__/

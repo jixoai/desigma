@@ -339,7 +339,7 @@ impl App {
     }
 
     pub fn import_variables_file(&mut self, path: &Path) {
-        match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| self.import_variables_text(&t)) {
+        match desigma_platform::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| self.import_variables_text(&t)) {
             Ok(n) => self.show_toast(format!("Imported {n} variables"), false),
             Err(e) => self.show_toast(format!("Cannot import variables: {e}"), true),
         }
@@ -348,7 +348,7 @@ impl App {
     pub fn export_variables_file(&mut self, path: &Path) {
         let json = desigma_fig::export_variables_json(&self.doc);
         let text = serde_json::to_string_pretty(&json).unwrap_or_default();
-        match std::fs::write(path, text) {
+        match desigma_platform::fs::write(path, text) {
             Ok(()) => self.show_toast(format!("Exported {} variables", self.doc.variables.len()), false),
             Err(e) => self.show_toast(format!("Cannot write {}: {e}", path.display()), true),
         }

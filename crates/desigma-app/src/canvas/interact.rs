@@ -16,6 +16,8 @@ use crate::layout;
 use crate::ops::apply_resize;
 use crate::theme;
 use crate::util::*;
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 use desigma_doc::{Command, Document, NodeKind};
 use egui::{Modifiers, Pos2, Response};
 
@@ -981,7 +983,7 @@ pub fn prepare_image(bytes: Vec<u8>) -> Result<(Vec<u8>, u32, u32), String> {
 fn place_image(app: &mut App, page: DV) {
     let exts: Vec<&str> = IMAGE_EXTENSIONS.iter().chain(crate::video::VIDEO_EXTENSIONS.iter()).copied().collect();
     let Some(path) = rfd::FileDialog::new().add_filter("Images and video", &exts).pick_file() else { return };
-    let Ok(bytes) = std::fs::read(&path) else {
+    let Ok(bytes) = desigma_platform::fs::read(&path) else {
         app.show_toast("Cannot read file", true);
         return;
     };

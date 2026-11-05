@@ -132,7 +132,7 @@ impl App {
         if self.dev.stale {
             self.dev_refresh(false);
             if self.dev.stale {
-                ctx.request_repaint_after(std::time::Duration::from_millis(260));
+                ctx.request_repaint_after(web_time::Duration::from_millis(260));
             }
         }
     }

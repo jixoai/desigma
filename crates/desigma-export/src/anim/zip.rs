@@ -105,14 +105,14 @@ pub fn write_png_dir(
     dir: &Path,
     mut progress: Option<ProgressFn<'_>>,
 ) -> Result<Vec<std::path::PathBuf>, AnimError> {
-    std::fs::create_dir_all(dir)?;
+    desigma_platform::fs::create_dir_all(dir)?;
     let times = anim.frame_times(fps);
     let total = times.len();
     let mut paths = Vec::with_capacity(total);
     for (i, &t) in times.iter().enumerate() {
         let png = anim.render(t).encode_png().map_err(|e| AnimError::Encode(e.to_string()))?;
         let path = dir.join(file_name(base, i, total));
-        std::fs::write(&path, png)?;
+        desigma_platform::fs::write(&path, png)?;
         paths.push(path);
         report(&mut progress, i as u32 + 1, total as u32)?;
     }

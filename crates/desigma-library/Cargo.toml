@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+desigma-platform.workspace = true
+web-time.workspace = true
 desigma-doc.workspace = true
 desigma-fig.workspace = true
 desigma-svg.workspace = true

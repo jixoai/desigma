@@ -358,6 +358,20 @@ desigma-diff compare reference.png actual.png --out diff.png   # pixel-compare t
 > [!IMPORTANT]
 > **Status:** desigma is in early alpha. Much of Figma's everyday design surface exists, but **it is not yet a replacement for professional daily work**. The biggest gaps are collaboration, plugins, PDF export, `.fig` features that real files haven't exercised yet, and code-signed release builds. Expect rough edges, and please file issues with your OS, a sample file if you can share one, and a screenshot.
 
+## Browser / WebAssembly
+
+The same editor also runs entirely in your browser, with WebGPU, WebGL fallback, IndexedDB projects and recovery, worker exports, browser collaboration and WebMCP tools sharing the live document's Undo history. No application backend or native helper is required.
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+# Install Binaryen (wasm-opt), then:
+python3 scripts/build-web.py
+python3 scripts/serve-web.py --port 8080
+```
+
+Open <http://127.0.0.1:8080>. Deploy `dist/` to a static HTTPS host. See [browser setup, WebMCP, performance and platform differences](docs/browser.md) for details and reproducible checks.
+
 ## MCP integration
 
 Build the local server with `cargo build --locked -p desigma-mcp`, then configure your MCP client to launch `desigma-mcp --workspace /path/to/designs`. It provides 16 tools for importing files, inspecting layers and tokens, generating code, editing with undo/redo, and saving a new `.desigma` file. With the editor's agent bridge on (Preferences → **Allow MCP agents to control this editor**, or launch with `desigma --bridge`), the same tools edit the document that is open on screen and share its Undo; a status pill shows while the bridge is on. Without a running editor the server works on an isolated file session as before. See the [setup and tool reference](crates/desigma-mcp/README.md).

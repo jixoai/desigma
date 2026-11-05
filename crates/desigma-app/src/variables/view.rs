@@ -11,6 +11,8 @@ use crate::app::App;
 use crate::icons::{self, Icon};
 use crate::panels::clipped;
 use crate::theme;
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 use crate::widgets::field;
 use crate::widgets::menu::{popup_menu, MenuItem, MenuResult};
 use crate::widgets::{self, fmt_num};

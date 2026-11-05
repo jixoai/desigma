@@ -49,6 +49,7 @@
 //! only applies the outer clip; `stroke-dashoffset`, markers and paint order
 //! are not represented.
 
+use desigma_platform::PathExt as _;
 mod convert;
 mod effects;
 mod paint;
@@ -174,7 +175,7 @@ fn options(base_dir: Option<&Path>) -> usvg::Options<'static> {
     let mut opt = usvg::Options { fontdb, font_family: "Inter".into(), ..Default::default() };
     // Never read local files named by an untrusted `href`, except images next to the
     // SVG file the user opened (and never outside its folder).
-    let base = base_dir.and_then(|d| d.canonicalize().ok());
+    let base = base_dir.and_then(|d| d.v_canonicalize().ok());
     opt.image_href_resolver.resolve_string = Box::new(move |href, _| linked_image(base.as_deref()?, href));
     opt
 }
@@ -189,11 +190,11 @@ fn linked_image(base: &Path, href: &str) -> Option<usvg::ImageKind> {
     }
     let rel = href.split(['?', '#']).next()?;
     let rel = percent_decode(rel)?;
-    let path = base.join(rel).canonicalize().ok()?;
-    if !path.starts_with(base) || std::fs::metadata(&path).ok()?.len() > MAX_LINKED_IMAGE {
+    let path = base.join(rel).v_canonicalize().ok()?;
+    if !path.starts_with(base) || desigma_platform::fs::metadata(&path).ok()?.len() > MAX_LINKED_IMAGE {
         return None;
     }
-    let data = Arc::new(std::fs::read(&path).ok()?);
+    let data = Arc::new(desigma_platform::fs::read(&path).ok()?);
     let kind = match data.as_slice() {
         [0x89, b'P', b'N', b'G', ..] => usvg::ImageKind::PNG(data),
         [0xFF, 0xD8, 0xFF, ..] => usvg::ImageKind::JPEG(data),

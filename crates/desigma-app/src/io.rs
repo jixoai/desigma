@@ -1,5 +1,7 @@
 //! Opening and saving documents.
 
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 use desigma_doc::{Document, Vec2};
 use std::path::{Path, PathBuf};
 
@@ -19,6 +21,7 @@ pub fn load_path_noted(path: &Path) -> Result<(Document, Vec<String>), String> {
 
 /// Runs an import so that a bug in an importer reports an error instead of closing the app.
 /// The panic hook has already written the details to the crash log.
+#[cfg(not(target_arch = "wasm32"))]
 fn guard<T>(file: &str, load: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(load)).unwrap_or_else(|payload| {
         Err(format!(
@@ -29,30 +32,35 @@ fn guard<T>(file: &str, load: impl FnOnce() -> Result<T, String>) -> Result<T, S
     })
 }
 
+#[cfg(target_arch = "wasm32")]
+fn guard<T>(_: &str, load: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    load()
+}
+
 fn load_unguarded(path: &Path) -> Result<(Document, Vec<String>), String> {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     let mut notes = Vec::new();
     let mut doc = match ext.as_str() {
         "fig" => {
-            let bytes = std::fs::read(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+            let bytes = desigma_platform::fs::read(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
             desigma_fig::import_fig(&bytes).map_err(|e| format!("Cannot import .fig: {e}"))?
         }
         "pen" => {
-            let bytes = std::fs::read(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+            let bytes = desigma_platform::fs::read(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
             let opts = desigma_pen::Options { base_dir: path.parent().map(Path::to_path_buf), ..Default::default() };
             let import = desigma_pen::import_with(&bytes, &opts).map_err(|e| format!("Cannot import .pen: {e}"))?;
             notes = import.warnings;
             import.document
         }
         "json" => {
-            let text = std::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+            let text = desigma_platform::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
             match desigma_fig::import_rest_json(&text) {
                 Ok(d) => d,
                 Err(fig_err) => Document::from_json(&text).map_err(|e| format!("Not a Figma REST file ({fig_err}) nor a desigma file ({e})"))?,
             }
         }
         "svg" => {
-            let text = std::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+            let text = desigma_platform::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
             let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("svg");
             let mut doc = Document::new(name);
             let page = doc.add_page("Page 1");
@@ -61,7 +69,7 @@ fn load_unguarded(path: &Path) -> Result<(Document, Vec<String>), String> {
             doc
         }
         _ => {
-            let text = std::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+            let text = desigma_platform::fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
             Document::from_json(&text).map_err(|e| format!("Invalid desigma file: {e}"))?
         }
     };
@@ -69,6 +77,7 @@ fn load_unguarded(path: &Path) -> Result<(Document, Vec<String>), String> {
         doc.name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Untitled").to_string();
     }
     ensure_page(&mut doc);
+    desigma_mcp::engine::validate_document(&doc)?;
     Ok((doc, notes))
 }
 
@@ -81,12 +90,15 @@ pub fn ensure_page(doc: &mut Document) {
 
 /// Writes the native format; returns the final path (extension enforced).
 pub fn save_path(doc: &Document, path: &Path) -> Result<PathBuf, String> {
+    #[cfg(not(target_arch = "wasm32"))]
     let mut p = path.to_path_buf();
+    #[cfg(target_arch = "wasm32")]
+    let mut p = PathBuf::from("/downloads").join(path.file_name().ok_or("Save path needs a filename")?);
     if p.extension().is_none() {
         p.set_extension(NATIVE_EXT);
     }
     let json = doc.to_json().map_err(|e| format!("Cannot serialize: {e}"))?;
-    std::fs::write(&p, json).map_err(|e| format!("Cannot write {}: {e}", p.display()))?;
+    desigma_platform::fs::write(&p, json).map_err(|e| format!("Cannot write {}: {e}", p.display()))?;
     Ok(p)
 }
 

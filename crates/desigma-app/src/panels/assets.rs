@@ -21,7 +21,7 @@ use desigma_doc::{Document, NodeId, NodeKind};
 use egui::{Align2, Color32, Context, Id, LayerId, Order, Pos2, Rect, Sense, Stroke, StrokeKind, TextEdit, TextureHandle, TextureId, TextureOptions, Ui, Vec2};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hasher;
-use std::time::Instant;
+use web_time::Instant;
 
 #[derive(Default)]
 pub struct AssetsState {

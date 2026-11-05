@@ -498,6 +498,7 @@ pub const PRESENT_MAX_SCALE: f32 = 4.0;
 
 // ---------------------------------------------------------------- app defaults
 pub const DEFAULT_WINDOW: (f32, f32) = (1600.0, 1088.0);
+#[cfg(not(target_arch = "wasm32"))]
 pub const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
 pub const APP_TITLE: &str = "desigma";
 pub const DEFAULT_SHAPE_SIZE: f32 = 100.0;
@@ -581,6 +582,7 @@ pub fn install_fonts(ctx: &egui::Context) {
 /// System fonts with Chinese/Japanese (first found wins), then Korean, for UI labels such as
 /// file and project names. Inter has none of these glyphs. Read from disk on a worker thread
 /// (the files are tens of MB) and appended as the last fallback of every UI family.
+#[cfg(not(target_arch = "wasm32"))]
 const CJK_FONTS: &[&str] = &[
     // Linux (fonts-noto-cjk, fonts-wqy)
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -596,16 +598,18 @@ const CJK_FONTS: &[&str] = &[
     "C:\\Windows\\Fonts\\simsun.ttc",
     "C:\\Windows\\Fonts\\YuGothR.ttc",
 ];
+#[cfg(not(target_arch = "wasm32"))]
 const KOREAN_FONTS: &[&str] =
     &["/System/Library/Fonts/AppleSDGothicNeo.ttc", "C:\\Windows\\Fonts\\malgun.ttf", "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"];
 
-fn install_cjk_fallback(ctx: &egui::Context) {
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn install_cjk_fallback(ctx: &egui::Context) {
     // Tests lay out text deterministically, whatever fonts the machine has.
     if cfg!(test) {
         return;
     }
     let ctx = ctx.clone();
-    std::thread::spawn(move || {
+    desigma_platform::spawn(move || {
         let cjk = first_readable(CJK_FONTS);
         // Noto Sans CJK already covers Hangul.
         let korean = if cjk.as_ref().is_some_and(|(p, _)| p.contains("NotoSansCJK")) { None } else { first_readable(KOREAN_FONTS) };
@@ -631,8 +635,9 @@ fn install_cjk_fallback(ctx: &egui::Context) {
     });
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn first_readable(paths: &[&str]) -> Option<(String, Vec<u8>)> {
-    paths.iter().find_map(|p| std::fs::read(p).ok().map(|b| (p.to_string(), b)))
+    paths.iter().find_map(|p| desigma_platform::fs::read(p).ok().map(|b| (p.to_string(), b)))
 }
 
 /// Perceived luminance test used to choose label colors on the canvas.
@@ -725,3 +730,30 @@ pub const BOARD_BAR_GAP: f32 = 12.0;
 pub const BOARD_BAR_BTN: f32 = 28.0;
 pub const BOARD_SWATCH: f32 = 18.0;
 pub const BOARD_BAR_SEP: f32 = 8.0;
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn install_cjk_fallback(ctx: &egui::Context) {
+    // Load the UI fallback only for a CJK interface; document fonts have their own loader.
+    if crate::i18n::current() != crate::i18n::Lang::ZhCn {
+        return;
+    }
+    let ctx = ctx.clone();
+    wasm_bindgen_futures::spawn_local(async move {
+        let request = desigma_fonts::FontRequest::new("Noto Sans SC", 400, false);
+        let report = crate::web::fonts::load(std::collections::BTreeSet::from([request]), Default::default()).await;
+        if let Some(font) = report.loaded.into_iter().next() {
+            let families = [
+                FontFamily::Proportional,
+                FontFamily::Monospace,
+                FontFamily::Name(FAMILY_STRONG.into()),
+                FontFamily::Name(FAMILY_MEDIUM.into()),
+                FontFamily::Name(FAMILY_SEMIBOLD.into()),
+            ]
+            .into_iter()
+            .map(|family| egui::epaint::text::InsertFontFamily { family, priority: egui::epaint::text::FontPriority::Lowest })
+            .collect();
+            ctx.add_font(egui::epaint::text::FontInsert::new("ui-cjk", egui::FontData::from_owned(font.data), families));
+            ctx.request_repaint();
+        }
+    });
+}

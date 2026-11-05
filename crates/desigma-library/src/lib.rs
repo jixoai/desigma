@@ -55,7 +55,7 @@ impl Library {
     /// Opens (creating if needed) a library rooted at `root`.
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
-        std::fs::create_dir_all(&root)?;
+        desigma_platform::fs::create_dir_all(&root)?;
         Ok(Self { root })
     }
 
@@ -71,7 +71,7 @@ impl Library {
 
 /// Stable random-looking id for new projects, files and libraries.
 pub fn new_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use web_time::{SystemTime, UNIX_EPOCH};
     static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let t = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let c = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);

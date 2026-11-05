@@ -6,9 +6,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+desigma-platform.workspace = true
+web-time.workspace = true
 desigma-doc.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.11"
 data-encoding = "2"
 uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1", features = ["v4", "js"] }

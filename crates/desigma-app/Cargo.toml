@@ -9,6 +9,9 @@ license.workspace = true
 name = "desigma"
 path = "src/main.rs"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 default = ["open-url"]
 # Opens Present links in the system browser (after a confirmation).
@@ -19,14 +22,14 @@ open-url = ["dep:open"]
 video = ["dep:openh264"]
 
 [dependencies]
-open = { version = "5", optional = true }
-openh264 = { version = "0.9", optional = true }
+desigma-platform.workspace = true
+web-time.workspace = true
 desigma-doc.workspace = true
 desigma-engine.workspace = true
 desigma-render.workspace = true
 desigma-fig.workspace = true
 desigma-library.workspace = true
-desigma-fonts.workspace = true
+desigma-fonts = { path = "../desigma-fonts", default-features = false }
 desigma-export.workspace = true
 desigma-svg.workspace = true
 desigma-pen.workspace = true
@@ -34,15 +37,12 @@ desigma-gpu.workspace = true
 desigma-mcp.workspace = true
 desigma-collab.workspace = true
 desigma-net.workspace = true
-arboard = "3"
 eframe = "0.35.0"
-rfd = "0.17.2"
 image = { workspace = true, features = ["jpeg", "webp"] }
 cosmic-text = "0.19.0"
 unicode-segmentation = "1"
 serde_json.workspace = true
 serde.workspace = true
-ureq = "2"
 semver = "1"
 sha2 = "0.11"
 # the portable Windows zip is unpacked in process (the same features desigma-fig uses)
@@ -64,3 +64,21 @@ winresource = "0.1"
 
 [dev-dependencies]
 gif = { version = "0.14", default-features = false, features = ["std"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+open = { version = "5", optional = true }
+openh264 = { version = "0.9", optional = true }
+arboard = "3"
+rfd = "0.17.2"
+ureq = "2"
+desigma-fonts = { path = "../desigma-fonts", features = ["net"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+eframe = { version = "0.35.0", features = ["glow"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "Location", "Navigator", "Clipboard", "Performance", "console"] }
+console_error_panic_hook = "0.1"
+serde-wasm-bindgen = "0.6"
+uuid = { version = "1", features = ["v4", "js"] }

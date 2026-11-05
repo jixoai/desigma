@@ -18,7 +18,7 @@ pub fn os_user_name() -> String {
 }
 
 fn read(root: &Path) -> serde_json::Map<String, serde_json::Value> {
-    std::fs::read_to_string(root.join(FILE))
+    desigma_platform::fs::read_to_string(root.join(FILE))
         .ok()
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
         .and_then(|v| v.as_object().cloned())

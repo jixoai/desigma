@@ -2,6 +2,8 @@
 //! slide content is rasterized, so the PDF is not an editable vector document.
 
 use crate::app::App;
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 use desigma_doc::{NodeId, NodeKind};
 
 impl App {
@@ -50,10 +52,20 @@ impl App {
         let Some(path) = rfd::FileDialog::new().add_filter("PDF document", &["pdf"]).set_file_name(format!("{name}.pdf")).save_file() else {
             return;
         };
-        let result = self.deck_pdf_bytes(all).and_then(|bytes| std::fs::write(&path, bytes).map_err(|error| format!("Cannot save the PDF: {error}")));
-        match result {
-            Ok(()) => self.show_toast(format!("Exported {} {} to {}", slides.len(), if slides.len() == 1 { "slide" } else { "slides" }, path.display()), false),
-            Err(error) => self.show_toast(error, true),
+        #[cfg(target_arch = "wasm32")]
+        {
+            crate::web::queue_export(&self.doc, "desigma_export_asset", serde_json::json!({"node_id":slides[0].0,"format":"pdf","path":path,"all_slides":all}));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let result =
+                self.deck_pdf_bytes(all).and_then(|bytes| desigma_platform::fs::write(&path, bytes).map_err(|error| format!("Cannot save the PDF: {error}")));
+            match result {
+                Ok(()) => {
+                    self.show_toast(format!("Exported {} {} to {}", slides.len(), if slides.len() == 1 { "slide" } else { "slides" }, path.display()), false)
+                }
+                Err(error) => self.show_toast(error, true),
+            }
         }
     }
 }

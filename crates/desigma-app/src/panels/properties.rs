@@ -8,6 +8,8 @@ use crate::icons::{self, Icon};
 use crate::ops::{apply_resize, Align};
 use crate::theme;
 use crate::util::v2;
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 use crate::widgets::field::{self, Prefix};
 use crate::widgets::menu::dropdown;
 use crate::widgets::{self, fmt_num};
@@ -1284,7 +1286,7 @@ pub(crate) fn picker_popup(app: &mut App, ui: &mut Ui, region: Rect) {
     }
     if out.want_image {
         if let Some(path) = rfd::FileDialog::new().add_filter("Images", &crate::canvas::interact::IMAGE_EXTENSIONS[..4]).pick_file() {
-            match std::fs::read(&path).map_err(|_| "Cannot read image".to_string()).and_then(crate::canvas::interact::prepare_image) {
+            match desigma_platform::fs::read(&path).map_err(|_| "Cannot read image".to_string()).and_then(crate::canvas::interact::prepare_image) {
                 Ok((bytes, _, _)) => {
                     let key = format!("img-{}", app.doc.images.len() + 1);
                     app.doc.images.insert(key.clone(), bytes);

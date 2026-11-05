@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/desigma-platform",
     "crates/desigma-doc",
     "crates/desigma-engine",
     "crates/desigma-render",
@@ -26,6 +27,8 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/deepfounder-ai/desigma"
 
 [workspace.dependencies]
+desigma-platform = { path = "crates/desigma-platform" }
+web-time = "1"
 desigma-engine = { path = "crates/desigma-engine" }
 desigma-doc = { path = "crates/desigma-doc" }
 desigma-collab = { path = "crates/desigma-collab" }
@@ -47,3 +50,12 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 
 [profile.dev.package."*"]
 opt-level = 2
+
+# Native release defaults stay unchanged; the browser gets LTO and SIMD.
+[profile.web-release]
+inherits = "release"
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"

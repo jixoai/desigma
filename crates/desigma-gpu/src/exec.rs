@@ -97,6 +97,7 @@ fn color_of(c: [f32; 4]) -> wgpu::Color {
 impl Renderer {
     /// Creates the renderer on an existing device (eframe's, or a headless one).
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<Self, crate::GpuError> {
+        #[cfg(not(target_arch = "wasm32"))]
         let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let layouts = Layouts::new(device);
         let pipes = Pipelines::new(device, &layouts);
@@ -157,6 +158,7 @@ impl Renderer {
             &(noclip_buf, 0, std::mem::size_of::<ClipParams>() as u64),
             &[wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&dummy) }],
         );
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(e) = pollster::block_on(scope.pop()) {
             return Err(crate::GpuError::Unsupported(e.to_string()));
         }

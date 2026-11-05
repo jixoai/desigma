@@ -1,0 +1,152 @@
+{
+  "previousDelivery": {
+    "count": 5000,
+    "frameIntervalMs": {
+      "median": 17.089999996125698,
+      "p95": 26.94999999552965,
+      "max": 985.4799999967217
+    },
+    "canvasCpuMs": {
+      "median": 3.1500000953674316,
+      "p95": 5.694999694824219,
+      "max": 13.824999809265137
+    },
+    "toolPanMs": {
+      "median": 0.03999999910593033,
+      "p95": 0.14500000327825546,
+      "max": 0.14500000327825546
+    },
+    "batchMs": [
+      93.29999999701977,
+      194.32500000298023,
+      414.8800000026822,
+      400.0300000011921,
+      559.7400000020862
+    ],
+    "stats": {
+      "agents": true,
+      "busy": false,
+      "collaborating": false,
+      "dirty": false,
+      "gpu": true,
+      "gpu_compile_ms": 2.31499981880188,
+      "home": false,
+      "name": "Benchmark 5000 layers",
+      "nodes": 5001,
+      "render_ms": 2.319999933242798,
+      "revision": 5,
+      "undo": 5,
+      "zoom": 1,
+      "wasmBytes": 25471591,
+      "readyMs": 8195.590000003576
+    },
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "dpr": 1,
+    "gpuCompileCpuMs": {
+      "median": 3.1500000953674316,
+      "p95": 5.690000057220459,
+      "max": 13.819999694824219
+    },
+    "viewBefore": {
+      "gpu": true,
+      "page_id": 1,
+      "render_ms": 0.004999999888241291,
+      "selection": [],
+      "x": 228,
+      "y": 57,
+      "zoom": 1
+    },
+    "viewAfter": {
+      "gpu": true,
+      "page_id": 1,
+      "render_ms": 2.319999933242798,
+      "selection": [],
+      "x": 1882.29541015625,
+      "y": 470.5738525390625,
+      "zoom": 1
+    },
+    "foreground": "visible",
+    "build": "b0f67642103a5a49",
+    "notes": [
+      "5000 painted rounded rectangles; visible foreground tab; recorded viewport confirms active panning.",
+      "CPU canvas preparation median 3.15 ms and p95 5.69 ms; browser frame median 17.09 ms and p95 26.95 ms.",
+      "A 985 ms frame interval spike occurred in this local run. This is not a claim of sustained 60 FPS.",
+      "Measurements include local browser/tool scheduling and machine load; render_ms is CPU preparation, not GPU completion."
+    ]
+  },
+  "unfocusedFollowup": {
+    "count": 5000,
+    "viewBefore": {
+      "gpu": true,
+      "page_id": 1,
+      "render_ms": 13.444999694824219,
+      "selection": [],
+      "x": 228,
+      "y": 57,
+      "zoom": 1
+    },
+    "viewAfter": {
+      "gpu": true,
+      "page_id": 1,
+      "render_ms": 3.2649998664855957,
+      "selection": [],
+      "x": 2556,
+      "y": 639,
+      "zoom": 1
+    },
+    "frameIntervalMs": {
+      "median": 16.810000002384186,
+      "p95": 63.39000000059605,
+      "max": 1115.969999998808
+    },
+    "canvasCpuMs": {
+      "median": 3.4049999713897705,
+      "p95": 7.814999580383301,
+      "max": 54.28000259399414
+    },
+    "toolPanMs": {
+      "median": 0.009999997913837433,
+      "p95": 0.03500000387430191,
+      "max": 0.03500000387430191
+    },
+    "batchMs": [
+      218.96500000357628,
+      257.320000000298,
+      274.1600000038743,
+      281.375,
+      657.5450000017881
+    ],
+    "stats": {
+      "agents": true,
+      "busy": false,
+      "collaborating": false,
+      "dirty": false,
+      "gpu": true,
+      "gpu_compile_ms": 3.2649998664855957,
+      "home": false,
+      "name": "Benchmark 5000 layers",
+      "nodes": 5001,
+      "render_ms": 3.2649998664855957,
+      "revision": 8,
+      "undo": 5,
+      "zoom": 1,
+      "storage": {
+        "residentBytes": 448027,
+        "storedBytes": 37098084,
+        "coldFiles": 21,
+        "entries": 72,
+        "cacheBytes": 33554432
+      },
+      "wasmBytes": 25498238,
+      "readyMs": 240.45000000298023
+    },
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "dpr": 1
+  },
+  "idleControl": {
+    "samples": 100,
+    "focusedSamples": 0,
+    "maxFrameMs": 1018.0749999955297
+  },
+  "interpretation": "Earlier runs did not validate document focus continuously. Retained for transparency, not direct performance comparisons."
+}

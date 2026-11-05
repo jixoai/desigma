@@ -13,7 +13,7 @@ use desigma_doc::NodeKind;
 use desigma_render::{Tile, TileBudget, TileCache, TileKey, Viewport, TILE_SIZE};
 use egui::{Color32, Context, Rect as ERect, TextureHandle, TextureOptions, Ui};
 use std::collections::HashMap;
-use std::time::Duration;
+use web_time::Duration;
 
 /// Seconds without a zoom change before tiles are re-rendered at the new zoom.
 pub const ZOOM_SETTLE: f64 = 0.15;
@@ -113,7 +113,7 @@ pub fn paint(app: &mut App, ui: &Ui, rect: ERect) {
     let ctx = ui.ctx();
     let ppp = ctx.pixels_per_point();
     let (w, h) = ((rect.width() * ppp).round().max(1.0), (rect.height() * ppp).round().max(1.0));
-    let start = std::time::Instant::now();
+    let start = web_time::Instant::now();
     let bg = page_background(app);
     let painter = ui.painter().with_clip_rect(rect);
     if !app.is_board() {

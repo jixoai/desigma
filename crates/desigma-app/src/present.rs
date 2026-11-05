@@ -353,15 +353,20 @@ fn open_url(ctx: &Context, url: &str) -> Result<(), String> {
     if !url_allowed(url) {
         return Err("Blocked: only http(s) and mailto links open".into());
     }
-    #[cfg(feature = "open-url")]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "open-url"))]
     {
         let _ = ctx;
         open::that(url.trim()).map_err(|e| format!("Could not open link: {e}"))
     }
-    #[cfg(not(feature = "open-url"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "open-url")))]
     {
         ctx.copy_text(url.trim().to_string());
         Err("Link copied to the clipboard (built without link opening)".into())
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = ctx;
+        crate::home::open_link(url.trim())
     }
 }
 
@@ -668,7 +673,7 @@ pub fn show(app: &mut App, ui: &mut Ui) {
     if st.player.anim.is_some() || st.player.overlays.iter().any(|o| o.anim.is_some()) || st.drag.is_some() {
         ctx.request_repaint();
     } else if st.player.is_animating() {
-        ctx.request_repaint_after(std::time::Duration::from_millis(40));
+        ctx.request_repaint_after(web_time::Duration::from_millis(40));
     }
     if !st.close {
         app.proto.present = Some(st);

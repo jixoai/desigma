@@ -250,8 +250,16 @@ impl App {
 
     /// Dials the host from a pasted link. Errors come back as text for the Join dialog.
     pub fn join_session(&mut self, ctx: &egui::Context, text: &str, name: &str, password: &str) -> Result<(), String> {
-        let ticket =
-            desigma_net::Ticket::parse(text).map_err(|_| "That does not look like a desigma session link. It starts with desigma://join/".to_string())?;
+        let ticket = desigma_net::Ticket::parse(text).map_err(|_| {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                "That does not look like a desigma session link. It starts with desigma://join/".to_string()
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                "That does not look like a browser session link. Copy the link from the host’s Share panel.".to_string()
+            }
+        })?;
         if ticket.password_required && password.is_empty() {
             return Err("This session needs a password. Ask the person who shared it.".into());
         }
@@ -385,7 +393,7 @@ pub fn pump(app: &mut App, ctx: &egui::Context) {
     }
     let local = Local { pointer: ctx.input(|i| i.pointer.hover_pos()), esc: ctx.input(|i| i.key_pressed(egui::Key::Escape)) && app.dialog.is_none() };
     if let Some(wait) = pump_with(app, app.now, &local) {
-        ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait));
+        ctx.request_repaint_after(web_time::Duration::from_secs_f64(wait));
     }
 }
 

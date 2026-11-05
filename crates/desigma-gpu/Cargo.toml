@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+desigma-platform.workspace = true
+web-time.workspace = true
 bytemuck = { version = "1", features = ["derive"] }
 desigma-doc.workspace = true
 desigma-render.workspace = true

@@ -1,6 +1,6 @@
 //! Relative timestamps for file cards ("5 minutes ago").
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Wall-clock milliseconds since the Unix epoch.
 pub fn wall_ms() -> u64 {

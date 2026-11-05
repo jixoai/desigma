@@ -1,6 +1,6 @@
 //! RFC 3339 timestamps without a date-time dependency (UTC, millisecond precision).
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Wall-clock milliseconds since the Unix epoch.
 pub fn now_ms() -> u64 {

@@ -5,6 +5,7 @@ use super::{thumb, Home, Section};
 use crate::app::App;
 use desigma_doc::{Document, DocumentKind};
 use desigma_library::Library;
+use desigma_platform::PathExt as _;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
@@ -45,7 +46,18 @@ impl Autosave {
 }
 
 pub(crate) fn doc_hash(doc: &Document) -> u64 {
-    json_hash(&doc.to_json().unwrap_or_default())
+    json_hash(&save_json(doc).unwrap_or_default())
+}
+
+fn save_json(doc: &Document) -> serde_json::Result<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        serde_json::to_string(doc)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        doc.to_json()
+    }
 }
 
 /// [`doc_hash`] of a document already serialized by [`Document::to_json`].
@@ -66,7 +78,10 @@ impl App {
                     // The sample file gets its thumbnail right away so the home screen is not blank.
                     Ok(Some(entry)) => {
                         if let Ok(doc) = lib.load_file(&entry.id) {
+                            #[cfg(not(target_arch = "wasm32"))]
                             thumb::refresh(&lib, &entry.id, &doc);
+                            #[cfg(target_arch = "wasm32")]
+                            thumb::refresh_in_background(lib.clone(), entry.id, doc);
                         }
                     }
                     Ok(None) => {}
@@ -107,6 +122,13 @@ impl App {
             return;
         }
         let Some(lib) = self.lib.clone() else { return };
+        #[cfg(target_arch = "wasm32")]
+        if let Ok(entry) = lib.file(id) {
+            let path = lib.path("projects").join(&entry.project).join("files").join(format!("{id}.desigma"));
+            if crate::web::defer_open(&path.to_string_lossy(), id) {
+                return;
+            }
+        }
         let loaded = lib.file(id).and_then(|e| lib.load_file(id).map(|d| (e, d)));
         let (entry, mut doc) = match loaded {
             Ok(x) => x,
@@ -216,7 +238,7 @@ impl App {
             // an old version is on screen: the file on disk must keep the live document
             return Err("Go back to the current version before saving".into());
         }
-        let json = self.doc.to_json().map_err(|e| format!("Cannot save: {e}"))?;
+        let json = save_json(&self.doc).map_err(|e| format!("Cannot save: {e}"))?;
         let hash = json_hash(&json);
         if only_changes && hash == self.autosave.saved_hash {
             self.autosave.changed_at = None;
@@ -285,7 +307,7 @@ impl App {
             }
             return;
         }
-        ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        ctx.request_repaint_after(web_time::Duration::from_millis(250));
     }
 
     /// Renames the open library file (header double-click).
@@ -301,6 +323,7 @@ impl App {
                     f.name = name.to_string();
                 }
                 self.doc.name = name.to_string();
+                self.changed();
             }
             Err(e) => self.show_toast(format!("Cannot rename: {e}"), true),
         }
@@ -315,6 +338,7 @@ impl App {
         match lib.create_file(project, folder, name, &doc) {
             Ok(e) => {
                 self.doc.name = e.name.clone();
+                self.changed();
                 let project_name = lib.project(project).map(|p| p.name).unwrap_or_default();
                 self.lib_file = Some(LibFile { id: e.id.clone(), project_id: project.to_string(), project: project_name.clone(), name: e.name });
                 self.autosave = Autosave { seen_rev: self.canvas.tiles.rev(), saved_hash: doc_hash(&self.doc), ..Default::default() };
@@ -381,8 +405,8 @@ impl App {
 }
 
 fn path_outside_library(root: &std::path::Path, path: &std::path::Path) -> bool {
-    let Ok(path) = path.canonicalize() else { return true };
-    let Ok(root) = root.canonicalize() else { return true };
+    let Ok(path) = path.v_canonicalize() else { return true };
+    let Ok(root) = root.v_canonicalize() else { return true };
     !path.starts_with(root)
 }
 
@@ -403,7 +427,7 @@ fn shared_file_name(name: &str, source: &std::path::Path) -> String {
 }
 
 fn short_hash(source: &std::path::Path) -> String {
-    let key = source.canonicalize().unwrap_or_else(|_| source.to_path_buf());
+    let key = source.v_canonicalize().unwrap_or_else(|_| source.to_path_buf());
     let mut hash: u64 = 0xcbf29ce484222325;
     for byte in key.to_string_lossy().as_bytes() {
         hash ^= u64::from(*byte);
@@ -414,7 +438,7 @@ fn short_hash(source: &std::path::Path) -> String {
 
 fn write_shared(root: &std::path::Path, doc: &Document, source: &std::path::Path) -> Result<(), String> {
     let dir = root.join(desigma_library::SHARED_DIR);
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    desigma_platform::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(format!("{}.desigma", shared_file_name(&doc.name, source)));
     let json = doc.to_json().map_err(|e| e.to_string())?;
     desigma_library::write_atomic(&path, json.as_bytes()).map_err(|e| e.to_string())

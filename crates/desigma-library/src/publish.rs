@@ -11,6 +11,7 @@
 
 use crate::{Library, LibraryError, Result};
 use desigma_doc::{diff_snapshots, snapshot, Document, LibraryAssetKind, LibrarySnapshot, PublishInfo, UpdateKind};
+use desigma_platform::PathExt as _;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -78,7 +79,7 @@ fn safe_id(s: &str) -> String {
 
 /// Current UTC time as RFC 3339 ("2026-01-02T03:04:05Z").
 pub fn now_rfc3339() -> String {
-    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
+    let secs = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
     let (days, rem) = (secs.div_euclid(86400), secs.rem_euclid(86400));
     // Civil-from-days (Howard Hinnant).
     let z = days + 719_468;
@@ -95,13 +96,13 @@ pub fn now_rfc3339() -> String {
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)?;
+    desigma_platform::fs::write(&tmp, bytes)?;
+    desigma_platform::fs::rename(&tmp, path)?;
     Ok(())
 }
 
 fn read_or_not_found(p: &Path, what: impl FnOnce() -> String) -> Result<String> {
-    std::fs::read_to_string(p).map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { LibraryError::NotFound(what()) } else { e.into() })
+    desigma_platform::fs::read_to_string(p).map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { LibraryError::NotFound(what()) } else { e.into() })
 }
 
 impl Library {
@@ -122,7 +123,7 @@ impl Library {
     pub fn publish_library(&self, file_id_or_name: &str, doc: &Document, description: &str) -> Result<PublishInfo> {
         let id = doc.library.published.as_ref().map(|p| p.library_id.clone()).filter(|s| !s.is_empty()).unwrap_or_else(|| safe_id(file_id_or_name));
         let dir = self.library_dir(&id);
-        std::fs::create_dir_all(&dir)?;
+        desigma_platform::fs::create_dir_all(&dir)?;
         let mut index = self.library_index(&id).unwrap_or(LibraryIndex {
             id: id.clone(),
             name: doc.name.clone(),
@@ -180,12 +181,12 @@ impl Library {
     pub fn list_libraries(&self) -> Result<Vec<LibraryIndex>> {
         let mut out = Vec::new();
         let root = self.path("libraries");
-        if !root.is_dir() {
+        if !root.v_is_dir() {
             return Ok(out);
         }
-        for e in std::fs::read_dir(root)? {
+        for e in desigma_platform::fs::read_dir(root)? {
             let e = e?;
-            if !e.path().is_dir() {
+            if !e.path().v_is_dir() {
                 continue;
             }
             if let Ok(idx) = self.library_index(&e.file_name().to_string_lossy()) {
@@ -210,25 +211,25 @@ impl Library {
     /// [`Library::restore_library`]). Files that enabled it keep their copies.
     pub fn unpublish(&self, id: &str) -> Result<()> {
         let src = self.library_dir(id);
-        if !src.is_dir() {
+        if !src.v_is_dir() {
             return Err(LibraryError::NotFound(format!("library {id}")));
         }
         let trash = self.path("trash/libraries");
-        std::fs::create_dir_all(&trash)?;
+        desigma_platform::fs::create_dir_all(&trash)?;
         let mut dst = trash.join(safe_id(id));
         let mut n = 1;
-        while dst.exists() {
+        while dst.v_exists() {
             dst = trash.join(format!("{}-{n}", safe_id(id)));
             n += 1;
         }
-        std::fs::rename(src, dst)?;
+        desigma_platform::fs::rename(src, dst)?;
         Ok(())
     }
 
     /// Restores the most recently unpublished copy of a library.
     pub fn restore_library(&self, id: &str) -> Result<()> {
         let dst = self.library_dir(id);
-        if dst.exists() {
+        if dst.v_exists() {
             return Err(LibraryError::Invalid(format!("library {id} is already published")));
         }
         let trash = self.path("trash/libraries");
@@ -237,7 +238,7 @@ impl Library {
         let mut n = 0;
         loop {
             let p = if n == 0 { trash.join(&base) } else { trash.join(format!("{base}-{n}")) };
-            if p.exists() {
+            if p.v_exists() {
                 best = Some(p);
             } else if n > 0 {
                 break;
@@ -246,9 +247,9 @@ impl Library {
         }
         let src = best.ok_or_else(|| LibraryError::NotFound(format!("library {id} in trash")))?;
         if let Some(parent) = dst.parent() {
-            std::fs::create_dir_all(parent)?;
+            desigma_platform::fs::create_dir_all(parent)?;
         }
-        std::fs::rename(src, dst)?;
+        desigma_platform::fs::rename(src, dst)?;
         Ok(())
     }
 }

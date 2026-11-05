@@ -1,4 +1,5 @@
 //! Native plugin bundles and browser panels with scoped document access.
+#[cfg_attr(target_arch = "wasm32", path = "../web/plugin_runtime.rs")]
 pub mod runtime;
 pub mod store;
 mod svg;
@@ -60,8 +61,15 @@ impl App {
         self.plugins.pending = true;
         self.plugins.error = None;
         let ctx = ctx.clone();
-        std::thread::spawn(move || {
+        #[cfg(not(target_arch = "wasm32"))]
+        desigma_platform::spawn(move || {
             let _ = sender.send(store::install(&root, &url));
+            ctx.request_repaint();
+        });
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(async move {
+            let result = crate::web::prepare_plugin(&url).await.and_then(|()| store::install(&root, &url));
+            let _ = sender.send(result);
             ctx.request_repaint();
         });
     }
@@ -109,15 +117,17 @@ impl App {
     }
 
     pub fn open_plugin(&mut self, plugin: &store::InstalledPlugin, ctx: &egui::Context) {
-        #[cfg(feature = "open-url")]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "open-url"))]
         let result = self.start_plugin(plugin, ctx).and_then(|()| {
             open::that(self.plugins.runtime.as_ref().expect("started runtime").url()).map_err(|_| "Cannot open the plugin panel in your browser.".to_string())
         });
-        #[cfg(not(feature = "open-url"))]
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "open-url")))]
         let result: Result<(), String> = {
             let _ = (plugin, ctx);
             Err("This build does not support opening browser plugin panels.".into())
         };
+        #[cfg(target_arch = "wasm32")]
+        let result = self.start_plugin(plugin, ctx);
         match result {
             Ok(()) => {
                 self.plugins.error = None;

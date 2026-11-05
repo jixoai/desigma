@@ -1,14 +1,17 @@
 //! Native plugin bundle storage. Installation never evaluates downloaded code.
+use desigma_platform::fs;
+use desigma_platform::PathExt as _;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
-    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use url::Url;
+#[cfg(not(target_arch = "wasm32"))]
+use web_time::Duration;
+use web_time::{SystemTime, UNIX_EPOCH};
 
 const REPOSITORY: &str = "deepfounder-ai/desigma-plugins";
 const MAX_BYTES: usize = 2 * 1024 * 1024;
@@ -305,6 +308,7 @@ pub fn load_bundle(root: &Path, plugin: &InstalledPlugin) -> Result<Bundle, Stri
     Ok(Bundle { plugin, panel: manifest.panel.expect("validated panel"), files, network: manifest.network })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn install(root: &Path, input: &str) -> Result<InstalledPlugin, String> {
     let agent = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(10))
@@ -346,14 +350,14 @@ fn check_size(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
     }
 }
 
-fn install_with(root: &Path, input: &str, mut fetch: impl FnMut(&str) -> Result<Vec<u8>, String>) -> Result<InstalledPlugin, String> {
+pub(crate) fn install_with(root: &Path, input: &str, mut fetch: impl FnMut(&str) -> Result<Vec<u8>, String>) -> Result<InstalledPlugin, String> {
     let manifest_url = validate_url(input)?;
     let bytes = check_size(fetch(&manifest_url)?)?;
     let manifest: Manifest = serde_json::from_slice(&bytes).map_err(|e| format!("Invalid native plugin manifest: {e}"))?;
     validate_manifest(&manifest)?;
     let plugins = root.join("plugins");
     let destination = bundle_directory(root, &manifest.id, &manifest.version);
-    if destination.exists() {
+    if destination.v_exists() {
         return Err(format!("{} {} is already installed.", manifest.name, manifest.version));
     }
     let base = manifest_url.strip_suffix("manifest.json").expect("validated manifest URL");
@@ -392,7 +396,8 @@ fn install_with(root: &Path, input: &str, mut fetch: impl FnMut(&str) -> Result<
         installed_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
     };
     fs::create_dir_all(&plugins).map_err(|e| format!("Cannot create plugin storage: {e}"))?;
-    let temporary = plugins.join(format!(".install-{}-{}-{}", std::process::id(), installed.installed_at, NEXT_TEMP.fetch_add(1, Ordering::Relaxed)));
+    let temporary =
+        plugins.join(format!(".install-{}-{}-{}", desigma_platform::process_id(), installed.installed_at, NEXT_TEMP.fetch_add(1, Ordering::Relaxed)));
     fs::create_dir(&temporary).map_err(|e| format!("Cannot create temporary plugin directory: {e}"))?;
     let result = (|| -> Result<(), String> {
         for (path, content) in &assets {
@@ -404,7 +409,7 @@ fn install_with(root: &Path, input: &str, mut fetch: impl FnMut(&str) -> Result<
         write_synced(&temporary.join("manifest.json"), &bytes)?;
         write_synced(&temporary.join("installed.json"), &serde_json::to_vec_pretty(&installed).map_err(|e| e.to_string())?)?;
         // Destination bundles are always nonempty; rename cannot replace an existing install.
-        if destination.exists() {
+        if destination.v_exists() {
             return Err("This plugin version is already installed.".into());
         }
         fs::rename(&temporary, &destination).map_err(|e| format!("Cannot finish plugin installation: {e}"))?;
@@ -424,7 +429,7 @@ fn write_synced(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
 pub fn list(root: &Path) -> Result<Vec<InstalledPlugin>, String> {
     let plugins = root.join("plugins");
-    if !plugins.exists() {
+    if !plugins.v_exists() {
         return Ok(Vec::new());
     }
     let mut installed = Vec::new();
@@ -445,6 +450,11 @@ pub fn list(root: &Path) -> Result<Vec<InstalledPlugin>, String> {
     }
     installed.sort_by(|a, b| a.name.cmp(&b.name).then(a.version.cmp(&b.version)));
     Ok(installed)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn install(root: &Path, input: &str) -> Result<InstalledPlugin, String> {
+    install_with(root, input, crate::web::download_cached)
 }
 
 #[cfg(test)]

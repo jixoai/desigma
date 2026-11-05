@@ -11,9 +11,10 @@
 //!   version) / Keep both (write mine to a "(my copy)" file, then take the newer one).
 
 use crate::app::App;
+use desigma_platform::PathExt as _;
 use egui::{Align2, Context, Id, Order, Pos2, Rect, Vec2};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant, SystemTime};
+use web_time::{Duration, Instant, SystemTime};
 
 /// Identity of a file version: modification time plus length (both change on a rewrite).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -23,7 +24,7 @@ pub struct Stamp {
 }
 
 pub fn stamp(path: &Path) -> Option<Stamp> {
-    let meta = std::fs::metadata(path).ok()?;
+    let meta = desigma_platform::fs::metadata(path).ok()?;
     Some(Stamp { mtime: meta.modified().ok(), len: meta.len() })
 }
 
@@ -156,7 +157,7 @@ fn unique_copy_path(path: &Path) -> PathBuf {
     loop {
         let name = if n == 1 { format!("{stem} (my copy).{ext}") } else { format!("{stem} (my copy {n}).{ext}") };
         let candidate = dir.join(name);
-        if !candidate.exists() {
+        if !candidate.v_exists() {
             return candidate;
         }
         n += 1;

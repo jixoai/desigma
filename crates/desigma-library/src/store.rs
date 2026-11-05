@@ -10,11 +10,12 @@
 
 use crate::{new_id, Library, LibraryError, Result};
 use desigma_doc::{Document, DocumentKind, Vec2};
+use desigma_platform::PathExt as _;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Name of the project created on first launch.
 pub const SEED_PROJECT: &str = "Getting started";
@@ -47,6 +48,9 @@ pub struct FileEntry {
     pub project: String,
     pub folder: Option<String>,
     pub name: String,
+    /// Allows browser libraries to list files without reading whole documents.
+    #[serde(default)]
+    pub kind: Option<DocumentKind>,
     pub created: u64,
     pub modified: u64,
     pub opened: u64,
@@ -112,14 +116,14 @@ fn write_lock() -> MutexGuard<'static, ()> {
 /// crash mid-write never leaves a truncated file behind.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
+        desigma_platform::fs::create_dir_all(dir)?;
     }
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
     let tmp = PathBuf::from(tmp);
-    let res = std::fs::write(&tmp, bytes).and_then(|_| std::fs::rename(&tmp, path));
+    let res = desigma_platform::fs::write(&tmp, bytes).and_then(|_| desigma_platform::fs::rename(&tmp, path));
     if res.is_err() {
-        let _ = std::fs::remove_file(&tmp);
+        let _ = desigma_platform::fs::remove_file(&tmp);
     }
     Ok(res?)
 }
@@ -130,13 +134,13 @@ pub fn load_external(path: &Path) -> Result<Document> {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     let invalid = |m: String| LibraryError::Invalid(m);
     let mut doc = match ext.as_str() {
-        "fig" => desigma_fig::import_fig(&std::fs::read(path)?).map_err(|e| invalid(format!("Cannot import .fig: {e}")))?,
+        "fig" => desigma_fig::import_fig(&desigma_platform::fs::read(path)?).map_err(|e| invalid(format!("Cannot import .fig: {e}")))?,
         "pen" => {
             let opts = desigma_pen::Options { base_dir: path.parent().map(Path::to_path_buf), ..Default::default() };
-            desigma_pen::import_with(&std::fs::read(path)?, &opts).map_err(|e| invalid(format!("Cannot import .pen: {e}")))?.document
+            desigma_pen::import_with(&desigma_platform::fs::read(path)?, &opts).map_err(|e| invalid(format!("Cannot import .pen: {e}")))?.document
         }
         "svg" => {
-            let text = std::fs::read_to_string(path)?;
+            let text = desigma_platform::fs::read_to_string(path)?;
             let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("svg");
             let mut doc = Document::new(name);
             let page = doc.add_page("Page 1");
@@ -145,13 +149,13 @@ pub fn load_external(path: &Path) -> Result<Document> {
             doc
         }
         "json" => {
-            let text = std::fs::read_to_string(path)?;
+            let text = desigma_platform::fs::read_to_string(path)?;
             match desigma_fig::import_rest_json(&text) {
                 Ok(d) => d,
                 Err(fig) => Document::from_json(&text).map_err(|e| invalid(format!("Not a Figma REST file ({fig}) nor a desigma file ({e})")))?,
             }
         }
-        _ => Document::from_json(&std::fs::read_to_string(path)?).map_err(|e| invalid(format!("Invalid desigma file: {e}")))?,
+        _ => Document::from_json(&desigma_platform::fs::read_to_string(path)?).map_err(|e| invalid(format!("Invalid desigma file: {e}")))?,
     };
     if doc.name.is_empty() {
         doc.name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Untitled").to_string();
@@ -174,6 +178,7 @@ fn clean_name(name: &str, what: &str) -> Result<String> {
 impl Library {
     /// `$DESIGMA_LIBRARY` if set (`$DESIGMA_LIBRARY_DIR` is accepted as a
     /// deprecated alias), otherwise `<data dir>/desigma/library`.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn default_root() -> PathBuf {
         for var in ["DESIGMA_LIBRARY", "DESIGMA_LIBRARY_DIR"] {
             if let Some(p) = std::env::var_os(var).filter(|p| !p.is_empty()) {
@@ -181,6 +186,11 @@ impl Library {
             }
         }
         dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("desigma").join("library")
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn default_root() -> PathBuf {
+        PathBuf::from("/library")
     }
 
     fn project_dir(&self, id: &str) -> PathBuf {
@@ -198,7 +208,7 @@ impl Library {
 
     fn load_manifest(&self, id: &str) -> Result<Manifest> {
         let p = self.project_dir(id).join(MANIFEST);
-        let text = std::fs::read_to_string(&p).map_err(|e| {
+        let text = desigma_platform::fs::read_to_string(&p).map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 LibraryError::NotFound(format!("project {id}"))
             } else {
@@ -229,7 +239,7 @@ impl Library {
 
     /// All projects, oldest first.
     pub fn list_projects(&self) -> Vec<Project> {
-        let Ok(rd) = std::fs::read_dir(self.path("projects")) else { return vec![] };
+        let Ok(rd) = desigma_platform::fs::read_dir(self.path("projects")) else { return vec![] };
         let mut out: Vec<Project> = rd
             .flatten()
             .filter_map(|e| {
@@ -265,7 +275,7 @@ impl Library {
     pub fn delete_project(&self, id: &str) -> Result<()> {
         let m = self.load_manifest(id)?;
         let dir = self.trash_dir(id);
-        std::fs::create_dir_all(&dir)?;
+        desigma_platform::fs::create_dir_all(&dir)?;
         let item = TrashItem {
             id: id.to_string(),
             kind: TrashKind::Project,
@@ -277,8 +287,8 @@ impl Library {
         };
         write_atomic(&dir.join(TRASH_MANIFEST), serde_json::to_string_pretty(&item)?.as_bytes())?;
         let dest = dir.join("project");
-        let _ = std::fs::remove_dir_all(&dest);
-        std::fs::rename(self.project_dir(id), dest)?;
+        let _ = desigma_platform::fs::remove_dir_all(&dest);
+        desigma_platform::fs::rename(self.project_dir(id), dest)?;
         Ok(())
     }
 
@@ -364,6 +374,7 @@ impl Library {
             project: project.to_string(),
             folder: folder.map(str::to_string),
             name,
+            kind: Some(doc.kind),
             created: now,
             modified: now,
             opened: now,
@@ -397,19 +408,31 @@ impl Library {
     /// has no field for it). Parses the file without building a document, so it is cheap enough
     /// to call once per file while listing.
     pub fn file_kind(&self, id: &str) -> Result<DocumentKind> {
+        #[cfg(not(target_arch = "wasm32"))]
         #[derive(Deserialize)]
         struct Probe {
             #[serde(default)]
             kind: DocumentKind,
         }
-        let (m, _) = self.find_file(id)?;
-        let bytes = std::fs::read(self.file_path(&m.project.id, id))?;
+        let (m, i) = self.find_file(id)?;
+        if let Some(kind) = m.files[i].kind {
+            return Ok(kind);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let kind =
+                desigma_platform::fs::document_kind(self.file_path(&m.project.id, id)).ok_or_else(|| std::io::Error::from(std::io::ErrorKind::WouldBlock))?;
+            Ok(serde_json::from_value(serde_json::Value::String(kind))?)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let bytes = desigma_platform::fs::read(self.file_path(&m.project.id, id))?;
+        #[cfg(not(target_arch = "wasm32"))]
         Ok(serde_json::from_slice::<Probe>(&bytes)?.kind)
     }
 
     pub fn load_file(&self, id: &str) -> Result<Document> {
         let (m, _) = self.find_file(id)?;
-        let text = std::fs::read_to_string(self.file_path(&m.project.id, id))?;
+        let text = desigma_platform::fs::read_to_string(self.file_path(&m.project.id, id))?;
         Ok(Document::from_json(&text)?)
     }
 
@@ -449,10 +472,10 @@ impl Library {
             thumbnail: None,
             ..src.clone()
         };
-        std::fs::copy(self.file_path(&src.project, &src.id), self.file_path(&src.project, &new.id))?;
+        desigma_platform::fs::copy(self.file_path(&src.project, &src.id), self.file_path(&src.project, &new.id))?;
         if let Some(t) = &src.thumbnail {
             let rel = Self::thumb_rel(&src.project, &new.id);
-            if std::fs::copy(self.path(t), self.path(&rel)).is_ok() {
+            if desigma_platform::fs::copy(self.path(t), self.path(&rel)).is_ok() {
                 new.thumbnail = Some(rel);
             }
         }
@@ -484,15 +507,15 @@ impl Library {
         let mut entry = src.files.remove(i);
         let from = entry.project.clone();
         if let Some(parent) = self.file_path(project, id).parent() {
-            std::fs::create_dir_all(parent)?;
+            desigma_platform::fs::create_dir_all(parent)?;
         }
-        std::fs::rename(self.file_path(&from, id), self.file_path(project, id))?;
+        desigma_platform::fs::rename(self.file_path(&from, id), self.file_path(project, id))?;
         if let Some(old) = entry.thumbnail.take() {
             let rel = Self::thumb_rel(project, id);
             if let Some(parent) = self.path(&rel).parent() {
-                std::fs::create_dir_all(parent)?;
+                desigma_platform::fs::create_dir_all(parent)?;
             }
-            if std::fs::rename(self.path(old), self.path(&rel)).is_ok() {
+            if desigma_platform::fs::rename(self.path(old), self.path(&rel)).is_ok() {
                 entry.thumbnail = Some(rel);
             }
         }
@@ -518,7 +541,7 @@ impl Library {
 
     /// Absolute path of an entry's thumbnail, if it has one on disk.
     pub fn thumbnail_path(&self, entry: &FileEntry) -> Option<PathBuf> {
-        entry.thumbnail.as_ref().map(|r| self.path(r)).filter(|p| p.exists())
+        entry.thumbnail.as_ref().map(|r| self.path(r)).filter(|p| p.v_exists())
     }
 
     /// Copies a `.desigma` file, or converts a `.fig` / `.pen` / `.json` / `.svg`, into a project.
@@ -564,7 +587,7 @@ impl Library {
         let (mut m, i) = self.find_file(id)?;
         let entry = m.files[i].clone();
         let dir = self.trash_dir(id);
-        std::fs::create_dir_all(&dir)?;
+        desigma_platform::fs::create_dir_all(&dir)?;
         let item = TrashItem {
             id: id.to_string(),
             kind: TrashKind::File,
@@ -575,9 +598,9 @@ impl Library {
             entry: Some(entry.clone()),
         };
         write_atomic(&dir.join(TRASH_MANIFEST), serde_json::to_string_pretty(&item)?.as_bytes())?;
-        std::fs::rename(self.file_path(&m.project.id, id), dir.join("file.desigma"))?;
+        desigma_platform::fs::rename(self.file_path(&m.project.id, id), dir.join("file.desigma"))?;
         if let Some(t) = &entry.thumbnail {
-            let _ = std::fs::rename(self.path(t), dir.join("thumb.png"));
+            let _ = desigma_platform::fs::rename(self.path(t), dir.join("thumb.png"));
         }
         m.files.remove(i);
         m.project.modified = now_ms();
@@ -586,9 +609,12 @@ impl Library {
 
     /// Everything in the trash, most recently trashed first.
     pub fn list_trash(&self) -> Vec<TrashItem> {
-        let Ok(rd) = std::fs::read_dir(self.path("trash")) else { return vec![] };
-        let mut v: Vec<TrashItem> =
-            rd.flatten().filter_map(|e| std::fs::read_to_string(e.path().join(TRASH_MANIFEST)).ok()).filter_map(|t| serde_json::from_str(&t).ok()).collect();
+        let Ok(rd) = desigma_platform::fs::read_dir(self.path("trash")) else { return vec![] };
+        let mut v: Vec<TrashItem> = rd
+            .flatten()
+            .filter_map(|e| desigma_platform::fs::read_to_string(e.path().join(TRASH_MANIFEST)).ok())
+            .filter_map(|t| serde_json::from_str(&t).ok())
+            .collect();
         v.sort_by_key(|t| std::cmp::Reverse(t.trashed));
         v
     }
@@ -597,8 +623,9 @@ impl Library {
     pub fn restore_file(&self, id: &str) -> Result<FileEntry> {
         let _guard = write_lock();
         let dir = self.trash_dir(id);
-        let item: TrashItem =
-            serde_json::from_str(&std::fs::read_to_string(dir.join(TRASH_MANIFEST)).map_err(|_| LibraryError::NotFound(format!("trashed file {id}")))?)?;
+        let item: TrashItem = serde_json::from_str(
+            &desigma_platform::fs::read_to_string(dir.join(TRASH_MANIFEST)).map_err(|_| LibraryError::NotFound(format!("trashed file {id}")))?,
+        )?;
         let (Some(project), Some(mut entry)) = (item.project.clone(), item.entry.clone()) else {
             return Err(LibraryError::Invalid("Not a trashed file".into()));
         };
@@ -609,37 +636,37 @@ impl Library {
             entry.folder = None;
         }
         if let Some(parent) = self.file_path(&project, id).parent() {
-            std::fs::create_dir_all(parent)?;
+            desigma_platform::fs::create_dir_all(parent)?;
         }
-        std::fs::rename(dir.join("file.desigma"), self.file_path(&project, id))?;
+        desigma_platform::fs::rename(dir.join("file.desigma"), self.file_path(&project, id))?;
         entry.thumbnail = None;
-        if dir.join("thumb.png").exists() {
+        if dir.join("thumb.png").v_exists() {
             let rel = Self::thumb_rel(&project, id);
             if let Some(parent) = self.path(&rel).parent() {
-                std::fs::create_dir_all(parent)?;
+                desigma_platform::fs::create_dir_all(parent)?;
             }
-            if std::fs::rename(dir.join("thumb.png"), self.path(&rel)).is_ok() {
+            if desigma_platform::fs::rename(dir.join("thumb.png"), self.path(&rel)).is_ok() {
                 entry.thumbnail = Some(rel);
             }
         }
         m.files.push(entry.clone());
         m.project.modified = now_ms();
         self.save_manifest(&m)?;
-        let _ = std::fs::remove_dir_all(dir);
+        let _ = desigma_platform::fs::remove_dir_all(dir);
         Ok(entry)
     }
 
     pub fn restore_project(&self, id: &str) -> Result<Project> {
         let dir = self.trash_dir(id);
-        if !dir.join("project").exists() {
+        if !dir.join("project").v_exists() {
             return Err(LibraryError::NotFound(format!("trashed project {id}")));
         }
-        if self.project_dir(id).exists() {
+        if self.project_dir(id).v_exists() {
             return Err(LibraryError::Invalid("A project with this id already exists".into()));
         }
-        std::fs::create_dir_all(self.path("projects"))?;
-        std::fs::rename(dir.join("project"), self.project_dir(id))?;
-        let _ = std::fs::remove_dir_all(dir);
+        desigma_platform::fs::create_dir_all(self.path("projects"))?;
+        desigma_platform::fs::rename(dir.join("project"), self.project_dir(id))?;
+        let _ = desigma_platform::fs::remove_dir_all(dir);
         self.project(id)
     }
 
@@ -655,8 +682,8 @@ impl Library {
     /// Permanently deletes everything in the trash. This is the only hard delete in the library.
     pub fn empty_trash(&self) -> Result<()> {
         let dir = self.path("trash");
-        if dir.exists() {
-            std::fs::remove_dir_all(&dir)?;
+        if dir.v_exists() {
+            desigma_platform::fs::remove_dir_all(&dir)?;
         }
         Ok(())
     }
@@ -668,7 +695,7 @@ impl Library {
     /// deleted) do nothing.
     pub fn seed_first_run(&self, demo: impl FnOnce() -> Document) -> Result<Option<FileEntry>> {
         let marker = self.path(SEED_MARKER);
-        if marker.exists() || !self.list_projects().is_empty() {
+        if marker.v_exists() || !self.list_projects().is_empty() {
             return Ok(None);
         }
         let project = self.create_project(SEED_PROJECT)?;

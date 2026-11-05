@@ -10,11 +10,12 @@
 use crate::index::{self, Differ, B};
 use crate::{render_with_transform, SceneIndex, Viewport};
 use desigma_doc::{Document, NodeId, Rect};
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tiny_skia as sk;
+use web_time::{Duration, Instant};
 
 /// Edge length of a tile in device pixels.
 pub const TILE_SIZE: u32 = 256;
@@ -26,6 +27,7 @@ const EDGE_PAD: i32 = 2;
 /// and the OS keep headroom; override with `DESIGMA_TILE_THREADS`. Workers are
 /// long lived, so their thread-local font systems and text layout caches
 /// persist across frames.
+#[cfg(not(target_arch = "wasm32"))]
 fn pool() -> &'static rayon::ThreadPool {
     static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     POOL.get_or_init(|| {
@@ -302,7 +304,10 @@ impl TileCache {
         // when the visible ones are done and time remains, so they never
         // add a frame-sized spike.
         let started = Instant::now();
+        #[cfg(not(target_arch = "wasm32"))]
         let chunk = pool().current_num_threads().max(1);
+        #[cfg(target_arch = "wasm32")]
+        let chunk = 1usize;
         let ring_chunk = (chunk / 4).max(1);
         let mut rendered = 0usize;
         while rendered < todo.len() {
@@ -330,7 +335,16 @@ impl TileCache {
             let done: Vec<(TileKey, sk::Pixmap)> = if batch.len() == 1 {
                 vec![(batch[0], render_tile(doc, page, index, batch[0]))]
             } else {
-                pool().install(|| batch.par_iter().map(|k| (*k, render_tile(doc, page, index, *k))).collect())
+                {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        pool().install(|| batch.par_iter().map(|k| (*k, render_tile(doc, page, index, *k))).collect())
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        batch.iter().map(|k| (*k, render_tile(doc, page, index, *k))).collect()
+                    }
+                }
             };
             for (k, pm) in done {
                 let version = self.next_version;

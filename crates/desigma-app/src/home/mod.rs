@@ -5,6 +5,8 @@
 //! The data lives in `desigma-library`; this module only draws it and turns
 //! clicks into [`Act`]s that [`apply`] runs against the library.
 
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 pub mod dialog;
 mod main_view;
 pub(crate) mod session;
@@ -391,10 +393,17 @@ pub fn apply(app: &mut App, act: Act) {
         }
         Act::Open(id) => app.open_library_file(&id),
         Act::OpenWindow(id) => {
-            let exe = std::env::current_exe();
-            match exe.and_then(|e| std::process::Command::new(e).arg("--library").arg(lib.root()).arg("--open-id").arg(&id).spawn()) {
-                Ok(_) => app.show_toast("Opened in a new window", false),
-                Err(e) => app.show_toast(format!("Cannot open a new window: {e}"), true),
+            #[cfg(target_arch = "wasm32")]
+            if let Err(e) = crate::web::open_window(&id) {
+                app.show_toast(e, true);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let exe = std::env::current_exe();
+                match exe.and_then(|e| std::process::Command::new(e).arg("--library").arg(lib.root()).arg("--open-id").arg(&id).spawn()) {
+                    Ok(_) => app.show_toast("Opened in a new window", false),
+                    Err(e) => app.show_toast(format!("Cannot open a new window: {e}"), true),
+                }
             }
         }
         Act::NewFile => {
@@ -542,11 +551,15 @@ pub fn apply(app: &mut App, act: Act) {
 
 /// Opens a folder in the system file manager.
 pub fn reveal(dir: &std::path::Path) -> Result<(), String> {
-    #[cfg(feature = "open-url")]
+    #[cfg(target_arch = "wasm32")]
+    {
+        crate::web::show_files(&dir.to_string_lossy()).map_err(|e| format!("{e:?}"))
+    }
+    #[cfg(all(not(target_arch = "wasm32"), feature = "open-url"))]
     {
         open::that(dir).map_err(|e| format!("Cannot open {}: {e}", dir.display()))
     }
-    #[cfg(not(feature = "open-url"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "open-url")))]
     {
         Err(format!("The file is in {}", dir.display()))
     }
@@ -554,11 +567,15 @@ pub fn reveal(dir: &std::path::Path) -> Result<(), String> {
 
 /// Opens a web link in the browser.
 pub fn open_link(url: &str) -> Result<(), String> {
-    #[cfg(feature = "open-url")]
+    #[cfg(target_arch = "wasm32")]
+    {
+        crate::web::open_link(url).map_err(|e| format!("{e:?}"))
+    }
+    #[cfg(all(not(target_arch = "wasm32"), feature = "open-url"))]
     {
         open::that(url).map_err(|e| format!("Could not open link: {e}"))
     }
-    #[cfg(not(feature = "open-url"))]
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "open-url")))]
     {
         Err(format!("Open {url} in your browser"))
     }

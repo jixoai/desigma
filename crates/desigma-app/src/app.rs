@@ -110,6 +110,8 @@ pub struct Toast {
 
 pub struct App {
     pub doc: Document,
+    /// Changes immediately on mutation, even before the next canvas frame.
+    pub document_revision: u64,
     pub hist: History,
     pub page: NodeId,
     pub selection: Vec<NodeId>,
@@ -190,6 +192,7 @@ impl App {
         let page = doc.pages.first().copied().unwrap_or(NodeId(0));
         Self {
             doc,
+            document_revision: 0,
             hist: History::default(),
             page,
             selection: vec![],
@@ -273,6 +276,7 @@ impl App {
     /// changes (pan, zoom): the renderers follow the viewport by themselves, and a revision bump
     /// re-indexes the page and makes autosave hash the whole document.
     pub fn changed(&mut self) {
+        self.document_revision = self.document_revision.wrapping_add(1);
         self.canvas.dirty = true;
     }
 

@@ -17,7 +17,7 @@ struct UreqFetch {
 #[cfg(feature = "net")]
 impl UreqFetch {
     fn new() -> Self {
-        use std::time::Duration;
+        use web_time::Duration;
         let agent = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(10)).timeout(Duration::from_secs(60)).user_agent("desigma-fonts").build();
         Self { agent }
     }
@@ -43,7 +43,7 @@ impl Fetch for UreqFetch {
 /// `dirs::cache_dir()/desigma` (falls back to the temp dir): where desigma keeps what it can
 /// download or receive again.
 pub fn app_cache_dir() -> PathBuf {
-    dirs::cache_dir().unwrap_or_else(std::env::temp_dir).join("desigma")
+    dirs::cache_dir().unwrap_or_else(desigma_platform::temp_dir).join("desigma")
 }
 
 /// License record stored next to each cached font (`<name>.json`).
@@ -124,12 +124,12 @@ impl FontCache {
 
     /// License record for a cached font, if present.
     pub fn sidecar(&self, req: &FontRequest) -> Option<Sidecar> {
-        serde_json::from_slice(&std::fs::read(self.sidecar_path(req)).ok()?).ok()
+        serde_json::from_slice(&desigma_platform::fs::read(self.sidecar_path(req)).ok()?).ok()
     }
 
     /// Cached bytes only (no bundled lookup, no network).
     pub fn cached(&self, req: &FontRequest) -> Option<Vec<u8>> {
-        std::fs::read(self.font_path(req)).ok().filter(|b| !b.is_empty())
+        desigma_platform::fs::read(self.font_path(req)).ok().filter(|b| !b.is_empty())
     }
 
     /// Bundled font, else cached file, else fetch from Fontsource and cache it.
@@ -170,8 +170,9 @@ impl FontCache {
         Ok(bytes)
     }
 
-    fn store(&self, req: &FontRequest, bytes: &[u8], side: &Sidecar) -> Result<(), FontError> {
-        std::fs::create_dir_all(&self.dir)?;
+    /// Store a validated open font with its license record.
+    pub fn store(&self, req: &FontRequest, bytes: &[u8], side: &Sidecar) -> Result<(), FontError> {
+        desigma_platform::fs::create_dir_all(&self.dir)?;
         // Sidecar first so a font file never exists without its license record.
         write_atomic(&self.sidecar_path(req), &serde_json::to_vec_pretty(side).map_err(|e| FontError::Metadata(e.to_string()))?)?;
         write_atomic(&self.font_path(req), bytes)?;
@@ -181,8 +182,8 @@ impl FontCache {
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)
+    desigma_platform::fs::write(&tmp, bytes)?;
+    desigma_platform::fs::rename(&tmp, path)
 }
 
 #[cfg(test)]

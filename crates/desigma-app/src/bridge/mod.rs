@@ -1,4 +1,6 @@
 //! Agent bridge: desigma-mcp drives the live document through the tool engine.
+use desigma_platform::PathExt as _;
+#[cfg_attr(target_arch = "wasm32", path = "../web/bridge.rs")]
 pub mod server;
 pub mod ui;
 pub use server::{Bridge, DISCOVERY_FILE};
@@ -19,37 +21,52 @@ pub struct BridgeState {
 }
 
 /// The editor as a tool host: commands go through `Tx` so component sync and rerouting apply.
-struct AppHost<'a>(&'a mut App);
+pub(crate) struct AppHost<'a>(pub(crate) &'a mut App);
 impl Host for AppHost<'_> {
     fn doc(&self) -> &Document {
         &self.0.doc
     }
     fn exec(&mut self, cmd: Command) -> Result<(), String> {
         let doc = &mut self.0.doc;
-        // Lay out what the edit touched, as the editor's own create/delete/property handlers do.
-        let around = match &cmd {
-            Command::Insert { parent, .. } => Some(*parent),
-            Command::Remove { id } => doc.get(*id).and_then(|n| n.parent),
-            Command::Update { node } => Some(node.id),
-            _ => None,
-        };
-        // A move lays out the parent it left and the one it joined, and touches the moved layer
-        // so the connectors attached to it are rerouted on commit, as a drag on the canvas does.
-        let moved = match &cmd {
-            Command::Reparent { id, parent, .. } => Some((*id, doc.get(*id).and_then(|n| n.parent), *parent)),
-            _ => None,
-        };
+        // Collect affected parents before applying, including compound WebMCP edits.
+        // Deduplication prevents a batch of 1000 siblings from running layout 1000 times.
+        let mut around = std::collections::BTreeSet::new();
+        let mut moved = std::collections::BTreeSet::new();
+        fn targets(doc: &Document, cmd: &Command, around: &mut std::collections::BTreeSet<NodeId>, moved: &mut std::collections::BTreeSet<NodeId>) {
+            match cmd {
+                Command::Insert { parent, .. } => {
+                    around.insert(*parent);
+                }
+                Command::Remove { id } => {
+                    around.extend(doc.get(*id).and_then(|n| n.parent));
+                }
+                Command::Update { node } => {
+                    around.insert(node.id);
+                }
+                Command::Reparent { id, parent, .. } => {
+                    moved.insert(*id);
+                    around.extend(doc.get(*id).and_then(|n| n.parent));
+                    around.insert(*parent);
+                }
+                Command::Batch(commands) => {
+                    for cmd in commands {
+                        targets(doc, cmd, around, moved);
+                    }
+                }
+                _ => {}
+            }
+        }
+        targets(doc, &cmd, &mut around, &mut moved);
         let mut tx = crate::edit::Tx::new();
         tx.cmd(doc, cmd).map_err(|e| e.to_string())?;
-        if let Some(id) = around.filter(|id| doc.get(*id).is_some()) {
-            crate::layout::relayout_around(doc, &mut tx.ed, id);
+        for id in moved {
+            if doc.get(id).is_some() {
+                tx.ed.touch(doc, id);
+            }
         }
-        if let Some((id, old, new)) = moved {
-            tx.ed.touch(doc, id);
-            for p in old.into_iter().chain([new]) {
-                if doc.get(p).is_some() {
-                    crate::layout::relayout_around(doc, &mut tx.ed, p);
-                }
+        for id in around {
+            if doc.get(id).is_some() {
+                crate::layout::relayout_around(doc, &mut tx.ed, id);
             }
         }
         if self.0.run_tx(tx) {
@@ -139,7 +156,7 @@ impl App {
         let root = self.lib.as_ref().map(|l| l.root().to_path_buf());
         if let Some(root) = &root {
             server::remove_stale(root);
-            if root.join(DISCOVERY_FILE).exists() {
+            if root.join(DISCOVERY_FILE).v_exists() {
                 return Err("Agent bridge is already on in another window".into());
             }
         }
@@ -238,22 +255,22 @@ impl App {
             }
             "desigma_export_image" => {
                 let a: ExportArgs = parse(args)?;
-                if a.path.extension().and_then(|e| e.to_str()) != Some("png") || !a.path.is_absolute() {
+                if a.path.extension().and_then(|e| e.to_str()) != Some("png") || !a.path.v_is_absolute() {
                     return Err("Export path must be an absolute .png path".into());
                 }
                 let (png, width, height) = engine::export_image(&AppHost(self), a.node_id, a.scale)?;
-                std::fs::write(&a.path, png).map_err(|e| format!("Cannot write PNG: {e}"))?;
+                desigma_platform::fs::write(&a.path, png).map_err(|e| format!("Cannot write PNG: {e}"))?;
                 Ok(json!({"path":a.path,"width":width,"height":height}))
             }
             "desigma_export_animation" => {
                 let a: desigma_mcp::motion::ExportAnimArgs = parse(args)?;
                 let path = std::path::PathBuf::from(&a.path);
                 let ext = desigma_mcp::motion::extension(&a.format)?;
-                if path.extension().and_then(|e| e.to_str()) != Some(ext) || !path.is_absolute() {
+                if path.extension().and_then(|e| e.to_str()) != Some(ext) || !path.v_is_absolute() {
                     return Err(format!("Export path must be an absolute .{ext} path"));
                 }
                 let (bytes, mut info) = desigma_mcp::motion::export(&AppHost(self), &a)?;
-                std::fs::write(&path, &bytes).map_err(|e| format!("Cannot write animation: {e}"))?;
+                desigma_platform::fs::write(&path, &bytes).map_err(|e| format!("Cannot write animation: {e}"))?;
                 info["path"] = json!(path);
                 info["bytes"] = json!(bytes.len());
                 Ok(info)
@@ -263,7 +280,7 @@ impl App {
                 if self.hist.can_undo() && !a.discard_changes {
                     return Err(UNSAVED.into());
                 }
-                if !a.path.is_absolute() {
+                if !a.path.v_is_absolute() {
                     return Err("Open path must be absolute".into());
                 }
                 let doc = crate::io::load_path(&a.path)?;
@@ -273,7 +290,7 @@ impl App {
             }
             "desigma_save_file" => {
                 let a: SaveArgs = parse(args)?;
-                if a.path.extension().and_then(|e| e.to_str()) != Some(crate::io::NATIVE_EXT) || !a.path.is_absolute() {
+                if a.path.extension().and_then(|e| e.to_str()) != Some(crate::io::NATIVE_EXT) || !a.path.v_is_absolute() {
                     return Err("Save path must be an absolute .desigma path".into());
                 }
                 let bytes = self.doc.to_json().map_err(|e| e.to_string())?;

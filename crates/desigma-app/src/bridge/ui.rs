@@ -15,7 +15,10 @@ pub fn show(app: &mut App, ctx: &Context) {
         Some(name) => format!("Agent · {}", name.trim_start_matches("desigma_")),
         None => "Agent bridge on".to_string(),
     };
+    #[cfg(not(target_arch = "wasm32"))]
     let tip = format!("desigma-mcp can edit this document (port {}). Click Off to stop.", bridge.port());
+    #[cfg(target_arch = "wasm32")]
+    let tip = "WebMCP agents can edit this document and share your Undo history. Click Off to stop.".to_string();
     let screen = ctx.content_rect();
     let measure = ctx.layer_painter(LayerId::new(Order::Tooltip, Id::new("bridge-measure")));
     let size = Vec2::new(widgets::text_width(&measure, &text, &theme::font_body()) + 86.0, 32.0);

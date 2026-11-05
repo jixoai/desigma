@@ -7,8 +7,9 @@
 //! digest it was told.
 
 use desigma_fonts::FontRequest;
+use desigma_platform::PathExt as _;
 use std::path::PathBuf;
-use std::time::SystemTime;
+use web_time::SystemTime;
 
 /// Largest font file shared with a guest.
 pub const MAX_FONT: usize = 20 * 1024 * 1024;
@@ -89,9 +90,9 @@ impl ImageCache {
     /// The bytes for `digest`, if cached and intact. Counts as a use.
     pub fn get(&self, digest: &str) -> Option<Vec<u8>> {
         let path = self.path(digest)?;
-        let bytes = std::fs::read(&path).ok()?;
+        let bytes = desigma_platform::fs::read(&path).ok()?;
         if self::digest(&bytes) != digest {
-            let _ = std::fs::remove_file(&path);
+            let _ = desigma_platform::fs::remove_file(&path);
             return None;
         }
         touch(&path);
@@ -105,7 +106,7 @@ impl ImageCache {
 
     #[cfg(test)]
     pub fn contains(&self, digest: &str) -> bool {
-        self.path(digest).is_some_and(|p| p.is_file())
+        self.path(digest).is_some_and(|p| p.v_is_file())
     }
 
     /// Stores `bytes` under their `digest` (the caller has checked it) and trims the cache.
@@ -114,17 +115,17 @@ impl ImageCache {
         if bytes.is_empty() || bytes.len() as u64 > self.limit / 2 {
             return;
         }
-        if path.is_file() {
+        if path.v_is_file() {
             touch(&path);
             return;
         }
-        if std::fs::create_dir_all(&self.dir).is_err() {
+        if desigma_platform::fs::create_dir_all(&self.dir).is_err() {
             return;
         }
         let total = self.total();
         let tmp = path.with_extension("part");
-        if std::fs::write(&tmp, bytes).is_err() || std::fs::rename(&tmp, &path).is_err() {
-            let _ = std::fs::remove_file(&tmp);
+        if desigma_platform::fs::write(&tmp, bytes).is_err() || desigma_platform::fs::rename(&tmp, &path).is_err() {
+            let _ = desigma_platform::fs::remove_file(&tmp);
             return;
         }
         self.total = Some(total + bytes.len() as u64);
@@ -142,7 +143,7 @@ impl ImageCache {
 
     /// `(path, size, last use)` of every cached file.
     fn entries(&self) -> Vec<(PathBuf, u64, SystemTime)> {
-        let Ok(dir) = std::fs::read_dir(&self.dir) else { return Vec::new() };
+        let Ok(dir) = desigma_platform::fs::read_dir(&self.dir) else { return Vec::new() };
         dir.filter_map(Result::ok)
             .filter_map(|e| {
                 let m = e.metadata().ok()?;
@@ -161,7 +162,7 @@ impl ImageCache {
             if total <= goal {
                 break;
             }
-            if path != keep && std::fs::remove_file(&path).is_ok() {
+            if path != keep && desigma_platform::fs::remove_file(&path).is_ok() {
                 total -= size;
             }
         }
@@ -171,7 +172,7 @@ impl ImageCache {
 
 /// Marks a cached file as just used (its mtime orders the eviction).
 fn touch(path: &std::path::Path) {
-    if let Ok(f) = std::fs::OpenOptions::new().write(true).open(path) {
+    if let Ok(f) = desigma_platform::fs::OpenOptions::new().write(true).open(path) {
         let _ = f.set_modified(SystemTime::now());
     }
 }

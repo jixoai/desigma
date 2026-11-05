@@ -23,6 +23,7 @@
 //! projects library; `App::attach_library` (and the `--library` flag) points it
 //! at the projects library's root with [`LibrariesState::set_root`].
 
+use desigma_platform::PathExt as _;
 pub mod modal;
 pub mod review;
 
@@ -741,7 +742,7 @@ impl App {
         let index = (!ext.library_id.starts_with(REMOTE_LIBRARY_PREFIX)).then(|| self.library().and_then(|l| l.library_index(&ext.library_id).ok())).flatten();
         // Files of the projects library open through the home store; others by path.
         let home_file = index.as_ref().and_then(|i| i.source_file.clone()).filter(|f| self.lib.as_ref().is_some_and(|l| l.file(f).is_ok()));
-        let source = index.and_then(|i| i.source_path).map(PathBuf::from).filter(|p| p.exists());
+        let source = index.and_then(|i| i.source_path).map(PathBuf::from).filter(|p| p.v_exists());
         let _ = ekey;
         match home_file.map(Ok).or(source.map(Err)) {
             Some(opened) => {

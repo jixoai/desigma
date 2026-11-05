@@ -3,9 +3,17 @@
 //! `desigma --export-animation` command.
 
 use crate::app::App;
-use desigma_doc::{Document, NodeId};
-use desigma_export::anim::{export_animation, write_png_dir, AnimExport, AnimFormat, Animation, Progress};
-use std::path::{Path, PathBuf};
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
+#[cfg(not(target_arch = "wasm32"))]
+use desigma_doc::Document;
+use desigma_doc::NodeId;
+#[cfg(not(target_arch = "wasm32"))]
+use desigma_export::anim::{export_animation, write_png_dir, Animation, Progress};
+use desigma_export::anim::{AnimExport, AnimFormat};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -27,6 +35,8 @@ struct Job {
     total: Arc<AtomicU32>,
     result: mpsc::Receiver<Result<(PathBuf, usize), String>>,
     name: String,
+    #[cfg(target_arch = "wasm32")]
+    web_job: u32,
 }
 
 impl AnimExportUi {
@@ -38,6 +48,12 @@ impl AnimExportUi {
     pub fn progress(&self) -> f32 {
         match &self.job {
             Some(j) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let (done, total) = crate::web::export_progress(j.web_job);
+                    j.done.store(done, Ordering::Relaxed);
+                    j.total.store(total, Ordering::Relaxed);
+                }
                 let t = j.total.load(Ordering::Relaxed).max(1);
                 (j.done.load(Ordering::Relaxed) as f32 / t as f32).clamp(0.0, 1.0)
             }
@@ -48,6 +64,8 @@ impl AnimExportUi {
     pub fn cancel(&mut self) {
         if let Some(j) = &self.job {
             j.cancel.store(true, Ordering::Relaxed);
+            #[cfg(target_arch = "wasm32")]
+            crate::web::cancel_export(j.web_job);
         }
     }
 }
@@ -74,13 +92,14 @@ pub fn scale_label(s: f32) -> String {
     format!("{}x", s)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn write_job(doc: &Document, node: NodeId, opts: &AnimExport, name: &str, path: &Path, progress: &mut dyn FnMut(Progress) -> bool) -> Result<usize, String> {
     let bytes = export_animation(doc, node, opts, name, Some(progress)).map_err(|e| e.to_string())?;
     // write next to the target first so a failed or cancelled export never leaves half a file
     let tmp = path.with_extension(format!("{}.part", opts.format.extension()));
-    std::fs::write(&tmp, &bytes).map_err(|e| format!("Cannot write {}: {e}", path.display()))?;
-    std::fs::rename(&tmp, path).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp);
+    desigma_platform::fs::write(&tmp, &bytes).map_err(|e| format!("Cannot write {}: {e}", path.display()))?;
+    desigma_platform::fs::rename(&tmp, path).map_err(|e| {
+        let _ = desigma_platform::fs::remove_file(&tmp);
         format!("Cannot write {}: {e}", path.display())
     })?;
     Ok(bytes.len())
@@ -114,10 +133,13 @@ impl App {
         let opts = self.canvas.motion.export.opts.clone();
         let (cancel, done, total) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(1)));
         let (tx, rx) = mpsc::channel();
+        #[cfg(not(target_arch = "wasm32"))]
         let (c, d, t) = (cancel.clone(), done.clone(), total.clone());
         let out = path.clone();
+        #[cfg(not(target_arch = "wasm32"))]
         let file_name = name.clone();
-        std::thread::spawn(move || {
+        #[cfg(not(target_arch = "wasm32"))]
+        desigma_platform::spawn(move || {
             let mut cb = |p: Progress| {
                 d.store(p.done, Ordering::Relaxed);
                 t.store(p.total.max(1), Ordering::Relaxed);
@@ -126,7 +148,25 @@ impl App {
             let r = write_job(&doc, node, &opts, &file_name, &out, &mut cb).map(|n| (out, n));
             let _ = tx.send(r);
         });
-        self.canvas.motion.export.job = Some(Job { cancel, done, total, result: rx, name });
+        #[cfg(target_arch = "wasm32")]
+        let web_job = {
+            let args = serde_json::json!({"node_id":node.0,"format":opts.format.extension(),"fps":opts.fps,"scale":opts.scale,"background":opts.background,"gif_dither":opts.gif_dither,"webm_quality":opts.webm_quality,"webm_speed":opts.webm_speed,"path":out});
+            let token = crate::web::begin_export(&doc.to_json().unwrap_or_default(), &args.to_string());
+            wasm_bindgen_futures::spawn_local(async move {
+                let result = crate::web::wait_export(token).await.map(|n| (out, n));
+                let _ = tx.send(result);
+            });
+            token
+        };
+        self.canvas.motion.export.job = Some(Job {
+            cancel,
+            done,
+            total,
+            result: rx,
+            name,
+            #[cfg(target_arch = "wasm32")]
+            web_job,
+        });
     }
 
     /// Per-frame: reports a finished export and keeps the progress bar moving.
@@ -142,7 +182,7 @@ impl App {
                     Err(e) => self.show_toast(format!("Export failed: {e}"), true),
                 }
             }
-            Err(mpsc::TryRecvError::Empty) => ctx.request_repaint_after(std::time::Duration::from_millis(100)),
+            Err(mpsc::TryRecvError::Empty) => ctx.request_repaint_after(web_time::Duration::from_millis(100)),
             Err(mpsc::TryRecvError::Disconnected) => {
                 self.canvas.motion.export.job = None;
                 self.show_toast("Export failed", true);
@@ -163,6 +203,7 @@ pub fn human_size(bytes: usize) -> String {
 
 /// The layer a headless export animates: the first layer called `name` (screens first), else the
 /// first page.
+#[cfg(not(target_arch = "wasm32"))]
 fn target(doc: &Document, name: Option<&str>) -> Result<NodeId, String> {
     match name {
         Some(name) => {
@@ -181,6 +222,7 @@ fn target(doc: &Document, name: Option<&str>) -> Result<NodeId, String> {
 
 /// `desigma --export-animation FILE --format gif|webm|png --out PATH [--fps N] [--scale S] [--dither] [--select NAME]`.
 /// `png` writes a `.zip` when `out` ends in `.zip`, else a folder of numbered PNGs.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn run_cli(
     file: &Path,
     format: Option<&str>,
@@ -202,7 +244,7 @@ pub fn run_cli(
     }
     let opts = AnimExport { format: fmt, fps: fps.unwrap_or(0), scale: scale.unwrap_or(1.0), gif_dither: dither, ..Default::default() };
     let name = doc.get(node).map(|n| n.name.clone()).unwrap_or_default();
-    let started = std::time::Instant::now();
+    let started = web_time::Instant::now();
     let mut last = 0u32;
     let mut cb = |p: Progress| {
         let pct = p.done * 100 / p.total.max(1);
@@ -219,7 +261,7 @@ pub fn run_cli(
         return Ok(format!("wrote {} frames to {} in {:.1}s", files.len(), out.display(), started.elapsed().as_secs_f32()));
     }
     let bytes = export_animation(&doc, node, &opts, &name, Some(&mut cb)).map_err(|e| e.to_string())?;
-    std::fs::write(out, &bytes).map_err(|e| format!("Cannot write {}: {e}", out.display()))?;
+    desigma_platform::fs::write(out, &bytes).map_err(|e| format!("Cannot write {}: {e}", out.display()))?;
     Ok(format!("wrote {} ({}) in {:.1}s", out.display(), human_size(bytes.len()), started.elapsed().as_secs_f32()))
 }
 

@@ -1,0 +1,142 @@
+{
+  "date": "2026-11-06",
+  "rust_toolchain": "1.93.1",
+  "build": {
+    "build": "bd3e4581c68fa133",
+    "wasm_bytes": 25509774,
+    "wasm_gzip_bytes": 9365797,
+    "assets": 18
+  },
+  "tool_count": 58,
+  "native_app_tests": {
+    "passed": 1025,
+    "ignored": 2,
+    "note": "1024 existing tests passed in the full run; the new chunked JSON test passed after correcting its f32 comparison to validate the deserialized Document."
+  },
+  "native_library_tests": {
+    "passed": 26
+  },
+  "browser_unit_tests": {
+    "passed": 20
+  },
+  "signaling_service_tests": {
+    "passed": 2
+  },
+  "verified_in_chromium": [
+    "Lazy Blob migration and cold reopen of a 48 MiB synthetic library",
+    "32 MiB clean document cache; pending writes retained on failures",
+    "Incremental snapshot interrupted by a high-priority edit; no partial JSON commits",
+    "Latest 5002 nodes restored after refresh",
+    "Automatic invitation signaling with guest BroadcastChannel disabled",
+    "Bidirectional document edits over WebRTC",
+    "Manual invitation/reply links establish WebRTC",
+    "Desktop and 390px connection panel, scrolling and End connection",
+    "Native WebMCP registration and 58 tool schemas",
+    "PNG/JPEG/SVG/GIF/WebM worker export after snapshot changes",
+    "Cold library document opens through WebMCP; relative paths reject without replacing the document",
+    "WebGL / CPU fallback after lazy storage migration"
+  ],
+  "performance_measurement_build": "e76b152c1e436df3",
+  "limitations": [
+    "No sustained 60 FPS guarantee or low-end mobile/Safari/Firefox performance evidence.",
+    "Unfocused browser frame scheduling produces approximately one-second intervals; continuous focus is required for valid frame measurements.",
+    "Fonts, plugin bundles, thumbnails, named versions and published-library snapshots still load into the synchronous working set.",
+    "First migration of existing array records costs I/O; a single current document can exceed the 32 MiB clean-buffer budget.",
+    "Cross-device internet traversal requires HTTPS/WSS deployment and may require TURN; only same-machine WebRTC is verified."
+  ],
+  "recovery_regression": {
+    "beforeNodes": 5001,
+    "recoveredNodes": 5002,
+    "concurrent": {
+      "rejected": "Error: The document changed during saving. Finish editing and save again."
+    },
+    "lastSave": {
+      "duration": 313.76500000059605,
+      "bytes": 4214853,
+      "chunkMaxMs": 0.8999999985098839
+    },
+    "name": "Recovery during edit def6b711-a4de-4800-abd3-bd1629d077c3"
+  },
+  "additional_web_tools_regressions": {
+    "passed": 6
+  },
+  "native_clippy": "passed: desigma-app and desigma-library, all targets, -D warnings",
+  "wasm_clippy": "passed: desigma-app wasm32-unknown-unknown, -D warnings",
+  "format": "cargo fmt --all --check and git diff --check passed",
+  "browser_smoke": [
+    "Appearance edit",
+    "Shared Undo",
+    "Shared Redo",
+    "Invalid batch rolls back",
+    "PNG Worker export",
+    "JPG Worker export",
+    "SVG Worker export",
+    "GIF Worker animation export",
+    "WEBM Worker animation export",
+    "Persistent project library",
+    "Absolute browser path opens a library file",
+    "Relative path rejected without replacing the document",
+    "Native WebMCP registration",
+    "Native WebMCP executes live editor"
+  ],
+  "previous_delivery": {
+    "date": "2026-11-05",
+    "rust_toolchain": "1.93.1",
+    "native_tests": {
+      "passed": 2032,
+      "ignored": 17,
+      "suites": 99
+    },
+    "browser_unit_tests": {
+      "passed": 12
+    },
+    "verified_in_chromium": [
+      "WebGPU original editor and showcase",
+      "WebGL / CPU fallback",
+      "Native document.modelContext registration and invocation",
+      "Shared undo/redo and invalid-batch rollback",
+      "IndexedDB reload recovery and project library",
+      "PNG / JPEG / SVG / PDF export in Worker",
+      "GIF / WebM export with responsive UI",
+      "Cancellation and worker recovery",
+      "Pencil file picker import",
+      "Schema-2 Icon Browser installation, SVG insertion and Undo",
+      "Bidirectional BroadcastChannel collaboration",
+      "WebRTC collaboration with BroadcastChannel disabled for the guest",
+      "Offline service-worker reload and WebMCP"
+    ],
+    "limitations": [
+      "Measurements are local, not a cross-device performance guarantee.",
+      "Native iroh tickets do not interoperate with browser WebRTC tickets.",
+      "Cross-network WebRTC may require user-supplied STUN/TURN and offer/answer exchange.",
+      "Native OS installation/update hooks and optional OpenH264 are excluded from the browser build."
+    ],
+    "build": {
+      "build": "cfc11c9e59fa8edc",
+      "wasm_bytes": 25472028,
+      "wasm_gzip_bytes": 9359880,
+      "assets": 14
+    },
+    "tool_count": 56,
+    "additional_tool_regression_tests": {
+      "passed": 6,
+      "includes": "Open/create from library and preserve library state after rejected open"
+    },
+    "native_clippy": "passed with Rust 1.93.1, workspace, all targets, -D warnings",
+    "wasm_clippy": "passed with Rust 1.93.1, wasm32-unknown-unknown, -D warnings",
+    "format": "cargo fmt --all --check passed",
+    "final_artifact_check": {
+      "library_to_editor": true,
+      "native_webmcp_tools": 56,
+      "screenshot": "/tmp/desigma-browser-delivery.png"
+    }
+  },
+  "performance_measurement_note": "Focused performance measurement precedes only the browser absolute-path validation fix; rendering and storage paths are the same.",
+  "final_artifact_check": {
+    "build": "bd3e4581c68fa133",
+    "tools": 58,
+    "wasm_bytes": 25509774,
+    "screenshot": "/tmp/desigma-browser-followup.png",
+    "original_showcase_nodes": 902
+  }
+}

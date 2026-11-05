@@ -10,7 +10,7 @@ use crate::theme;
 use crate::widgets;
 use desigma_doc::*;
 use egui::{Align2, Color32, Pos2, Rect as ERect, Sense, Stroke, StrokeKind, Ui, Vec2 as EV};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use web_time::{Duration, SystemTime, UNIX_EPOCH};
 
 const H: f32 = 36.0;
 const BTN: f32 = 28.0;

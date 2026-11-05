@@ -5,6 +5,8 @@ use crate::app::App;
 use crate::dev::color::ColorFormat;
 use crate::theme;
 use crate::util::world_corners;
+#[cfg(target_arch = "wasm32")]
+use crate::web::dialogs as rfd;
 use crate::widgets::{self, elide, fmt_num, text_width};
 use desigma_doc::*;
 use egui::{Align2, Color32, Id, Pos2, Rect, Sense, Stroke, Ui, Vec2};
@@ -256,7 +258,7 @@ pub(crate) fn download(app: &mut App, id: NodeId, asset: &Asset) {
         return;
     }
     let Some(path) = rfd::FileDialog::new().add_filter(label, &[ext]).set_file_name(file).save_file() else { return };
-    match std::fs::write(&path, bytes) {
+    match desigma_platform::fs::write(&path, bytes) {
         Ok(()) => app.show_toast(format!("Saved {}", path.display()), false),
         Err(e) => app.show_toast(format!("Download failed: {e}"), true),
     }

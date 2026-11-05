@@ -9,6 +9,8 @@ default = ["server"]
 server = ["dep:rmcp", "dep:tokio"]
 
 [dependencies]
+desigma-platform.workspace = true
+web-time.workspace = true
 desigma-doc.workspace = true
 desigma-export.workspace = true
 desigma-svg.workspace = true

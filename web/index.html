@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2c2c2c">
+  <meta name="description" content="Desigma design editor. Your designs, edited and saved in your browser.">
+  <title>Desigma — Browser editor</title>
+  <link rel="icon" href="./icon.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="modulepreload" href="./pkg/desigma_app.js">
+</head>
+<body>
+  <main id="editor" aria-label="Desigma design editor">
+    <canvas id="canvas" tabindex="0" aria-label="Design canvas. Press Control or Command K for actions; use the panels to edit layers."></canvas>
+    <div id="loading" role="status" aria-live="polite">
+      <img src="./icon.png" alt="" width="56" height="56">
+      <h1>Desigma</h1>
+      <p id="loading-message">Opening your workspace…</p>
+      <progress id="loading-progress" aria-label="Loading editor"></progress>
+      <p class="hint">Your work stays on this device.</p>
+    </div>
+    <div id="failure" hidden role="alert">
+      <h1>Could not open the editor</h1>
+      <p id="failure-message"></p>
+      <button id="retry" type="button">Try again</button>
+      <a href="?renderer=webgl">Use compatibility rendering</a>
+    </div>
+  </main>
+  <footer aria-label="Workspace status">
+    <span id="storage-status" role="status" aria-live="polite">Opening browser storage…</span>
+    <span class="spacer"></span>
+    <span id="renderer-status"></span>
+    <button id="open-file" type="button" disabled>Open file</button>
+    <button id="download" type="button" disabled>Download .desigma</button>
+    <button id="connect-devices" type="button" disabled aria-controls="sharing-panel" aria-expanded="false">Connect devices</button>
+    <details id="agent-details">
+      <summary id="agent-status">Agent tools</summary>
+      <div class="agent-panel">
+        <strong>Work with an agent</strong>
+        <p id="agent-description">Tools become available when the editor is ready.</p>
+        <p>Agents edit the document you see. Use Undo to reverse their edits. Turn access off in Preferences.</p>
+        <a href="./tools.json" target="_blank" rel="noopener">View tool schemas</a>
+      </div>
+    </details>
+  </footer>
+  <section id="sharing-panel" class="sharing-panel" aria-labelledby="sharing-title" hidden>
+    <header><h2 id="sharing-title">Connect devices</h2><button id="sharing-close" type="button" aria-label="Close device connections">Close</button></header>
+    <p>Keep the host’s tab open while working together. Use the Share menu on the canvas to approve guests or change their access.</p>
+    <div class="sharing-options">
+      <label>Guest access <select id="sharing-role"><option value="editor">Can edit</option><option value="viewer">Can view</option></select></label>
+      <label>Session password <input id="sharing-password" type="password" autocomplete="off" maxlength="256" placeholder="Optional"></label>
+      <label class="check"><input id="sharing-approval" type="checkbox"> Ask before admitting guests</label>
+    </div>
+    <details><summary>Connection settings</summary>
+      <label>Signaling server <input id="sharing-server" type="url" placeholder="wss://your-server.example" autocomplete="off"></label>
+      <p class="hint">Use your own server for automatic connections. Leave blank to exchange an invitation and a reply link.</p>
+      <label>STUN / TURN servers <textarea id="sharing-ice" rows="2" spellcheck="false" placeholder='[{"urls":"stun:your-server.example"}]'></textarea></label>
+      <p class="hint">Optional network configuration from your administrator. Some networks need TURN to connect.</p>
+    </details>
+    <button id="sharing-create" type="button">Create invitation link</button>
+    <p class="hint">For an existing shared session, its current password and permissions apply.</p>
+    <div id="sharing-output-group" hidden><label id="sharing-output-label" for="sharing-output">Invitation link</label><textarea id="sharing-output" rows="3" readonly spellcheck="false"></textarea><button id="sharing-copy" type="button">Copy link</button></div>
+    <hr>
+    <label>Invitation or reply link <textarea id="sharing-input" rows="3" spellcheck="false" placeholder="Paste a Desigma connection link"></textarea></label>
+    <label>Your name <input id="sharing-name" value="Guest" maxlength="80" autocomplete="nickname"></label>
+    <label class="check"><input id="sharing-discard" type="checkbox"> Replace my current document when joining</label>
+    <div class="sharing-actions"><button id="sharing-accept" type="button">Use connection link</button><button id="sharing-end" type="button">End connection</button></div>
+    <p id="sharing-status" role="status" aria-live="polite">Create an invitation, or paste one to join.</p>
+  </section>
+  <aside id="notice" role="alert" hidden><span id="notice-message"></span><button id="dismiss-notice" type="button" aria-label="Dismiss message">Dismiss</button></aside>
+  <noscript>This editor needs JavaScript and WebAssembly enabled.</noscript>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

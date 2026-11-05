@@ -3,7 +3,7 @@
 use desigma_doc::{Document, DocumentKind, NodeId};
 use desigma_library::Library;
 use std::collections::HashMap;
-use std::time::SystemTime;
+use web_time::SystemTime;
 
 /// Longest edge of a stored thumbnail in pixels.
 pub const THUMB_PX: f32 = 480.0;
@@ -82,6 +82,7 @@ pub fn thumbnail_png(doc: &Document) -> Option<Vec<u8>> {
 }
 
 /// Renders and stores the thumbnail now.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn refresh(lib: &Library, file: &str, doc: &Document) -> bool {
     match thumbnail_png(doc) {
         Some(png) => lib.set_thumbnail(file, &png).is_ok(),
@@ -91,7 +92,20 @@ pub fn refresh(lib: &Library, file: &str, doc: &Document) -> bool {
 
 /// Renders and stores the thumbnail on a background thread (saving must not stutter).
 pub fn refresh_in_background(lib: Library, file: String, doc: Document) {
-    std::thread::spawn(move || {
+    #[cfg(target_arch = "wasm32")]
+    {
+        if let Ok(json) = serde_json::to_string(&doc) {
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Ok(bytes) = crate::web::render_thumbnail(&json).await {
+                    if !bytes.is_empty() {
+                        let _ = lib.set_thumbnail(&file, &bytes);
+                    }
+                }
+            });
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    desigma_platform::spawn(move || {
         refresh(&lib, &file, &doc);
     });
 }
@@ -115,7 +129,7 @@ impl Kinds {
             return self.map.get(&entry.id).map(|k| k.1).unwrap_or_default();
         }
         *budget -= 1;
-        let kind = lib.file_kind(&entry.id).unwrap_or_default();
+        let Ok(kind) = lib.file_kind(&entry.id) else { return DocumentKind::default() };
         self.map.insert(entry.id.clone(), (entry.modified, kind));
         kind
     }
@@ -132,7 +146,7 @@ impl Textures {
     /// `budget` decodes happen per call so a big grid does not stall a frame.
     pub fn get(&mut self, ctx: &egui::Context, lib: &Library, entry: &desigma_library::FileEntry, budget: &mut u32) -> Option<(egui::TextureId, egui::Vec2)> {
         let path = lib.thumbnail_path(entry)?;
-        let mtime = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        let mtime = desigma_platform::fs::metadata(&path).and_then(|m| m.modified()).ok();
         if let Some((seen, tex)) = self.map.get(&entry.id) {
             if *seen == mtime {
                 return tex.as_ref().map(|t| (t.id(), t.size_vec2()));
@@ -143,7 +157,7 @@ impl Textures {
             return self.map.get(&entry.id).and_then(|(_, t)| t.as_ref().map(|t| (t.id(), t.size_vec2())));
         }
         *budget -= 1;
-        let tex = std::fs::read(&path).ok().and_then(|bytes| image::load_from_memory(&bytes).ok()).map(|img| {
+        let tex = desigma_platform::fs::read(&path).ok().and_then(|bytes| image::load_from_memory(&bytes).ok()).map(|img| {
             let rgba = img.to_rgba8();
             let size = [rgba.width() as usize, rgba.height() as usize];
             ctx.load_texture(format!("thumb-{}", entry.id), egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw()), egui::TextureOptions::LINEAR)

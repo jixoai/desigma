@@ -1,0 +1,102 @@
+{
+  "count": 5000,
+  "validForFrameRate": true,
+  "foreground": {
+    "samples": 119,
+    "focused": 119,
+    "visible": 119
+  },
+  "viewBefore": {
+    "gpu": true,
+    "page_id": 1,
+    "render_ms": 0.004999999888241291,
+    "selection": [],
+    "x": 228,
+    "y": 57,
+    "zoom": 1
+  },
+  "viewAfter": {
+    "gpu": true,
+    "page_id": 1,
+    "render_ms": 2.0250000953674316,
+    "selection": [],
+    "x": 1836,
+    "y": 459,
+    "zoom": 1
+  },
+  "frameIntervalMs": {
+    "median": 16.884999997913837,
+    "p95": 24.189999997615814,
+    "max": 29.45499999821186
+  },
+  "canvasCpuMs": {
+    "median": 2.7300000190734863,
+    "p95": 4.454999923706055,
+    "max": 11.219999313354492
+  },
+  "toolPanMs": {
+    "median": 0.01000000536441803,
+    "p95": 0.03500000387430191,
+    "max": 0.03500000387430191
+  },
+  "batchMs": [
+    475.78999999910593,
+    205.6199999973178,
+    192.28999999910593,
+    227.72500000149012,
+    255.0650000050664
+  ],
+  "stats": {
+    "agents": true,
+    "busy": false,
+    "collaborating": false,
+    "dirty": false,
+    "gpu": true,
+    "gpu_compile_ms": 2.0199999809265137,
+    "home": false,
+    "name": "Benchmark 5000 layers",
+    "nodes": 5001,
+    "render_ms": 2.0250000953674316,
+    "revision": 18,
+    "undo": 5,
+    "zoom": 1,
+    "storage": {
+      "residentBytes": 448027,
+      "storedBytes": 37098084,
+      "coldFiles": 21,
+      "entries": 72,
+      "cacheBytes": 33554432
+    },
+    "wasmBytes": 25498238,
+    "readyMs": 240.45000000298023
+  },
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "dpr": 1,
+  "build": "e76b152c1e436df3",
+  "date": "2026-11-06",
+  "notes": [
+    "5000 painted rounded rectangles. Canvas focused before measurement; all 119 recorded samples were visible and focused.",
+    "Frame intervals measure browser scheduling; canvasCpuMs measures CPU preparation, not GPU completion. No sustained 60 FPS claim.",
+    "An earlier run without continuous focus validation recorded a 1116 ms interval. A no-edit requestAnimationFrame control also reached 1018 ms while unfocused, and CPU profiling found 980 ms idle spans. Those unfocused frame measurements are not a valid comparison of editor throughput.",
+    "readyMs is a warm recovery load with cached WASM, not cold startup."
+  ],
+  "storage": {
+    "files": 24,
+    "storedBytes": 50331648,
+    "before": {
+      "residentBytesBeforeOpen": 50331648,
+      "openMs": 70.405
+    },
+    "migration": {
+      "residentBytesBeforeOpen": 0,
+      "openMs": 3798.64
+    },
+    "after": {
+      "residentBytesBeforeOpen": 0,
+      "residentBytesAfterOpeningOneFile": 2097152,
+      "openMs": 5.46,
+      "hydrateMs": 24.345
+    },
+    "scope": "Retained JS file byte arrays in an isolated synthetic IndexedDB database, not total browser/WASM/GPU RAM. Migration is a one-time cost."
+  }
+}

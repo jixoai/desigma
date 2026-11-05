@@ -224,8 +224,8 @@ pub struct GeomCache {
     /// Time one frame may spend re-flattening geometry for a new zoom bucket;
     /// past it, nodes keep their previous (coarser or finer) meshes until the
     /// next frame. `None`: unlimited.
-    pub budget: Option<std::time::Duration>,
-    frame_start: Option<std::time::Instant>,
+    pub budget: Option<web_time::Duration>,
+    frame_start: Option<web_time::Instant>,
     /// Nodes that kept stale-bucket geometry in the current frame.
     pub stale_hits: u32,
 }
@@ -251,7 +251,7 @@ impl GeomCache {
 
     /// Starts a frame: resets the re-tessellation budget.
     pub fn begin_frame(&mut self) {
-        self.frame_start = Some(std::time::Instant::now());
+        self.frame_start = Some(web_time::Instant::now());
         self.stale_hits = 0;
     }
 

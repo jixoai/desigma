@@ -744,6 +744,7 @@ pub fn motion_document() -> Document {
 
 /// Files for a populated home screen: the full showcase, two smaller ones cut from it, a board and
 /// the motion demo.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn library_samples() -> Vec<Document> {
     let full = document();
     let mut web = document();
@@ -760,6 +761,7 @@ pub fn library_samples() -> Vec<Document> {
 }
 
 /// Writes the sample files into a projects library at `root` (screenshot aid: `--seed-library DIR`).
+#[cfg(not(target_arch = "wasm32"))]
 pub fn seed_library(root: &std::path::Path) -> Result<(), String> {
     let lib = desigma_library::Library::open(root).map_err(|e| e.to_string())?;
     let project = lib.create_project("Marlow").map_err(|e| e.to_string())?;
