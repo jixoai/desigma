@@ -38,3 +38,18 @@ test('registration failure cleans up and remains visible to the caller', async (
   await assert.rejects(registerTools({ tools: [...tools, { ...tools[0], name: 'other' }], execute: async () => ({}), documentObject: { modelContext: context }, navigatorObject: {} }), /denied/);
   assert.equal(signals[0].aborted, true);
 });
+
+test('one editor’s pending operation does not block another editor’s tool queue', { timeout: 2000 }, async t => {
+  let release, started;
+  const entered = new Promise(resolve => { started = resolve; });
+  const waiting = new Promise(resolve => { release = resolve; });
+  t.after(release);
+  const first = await registerTools({ tools, documentObject: {}, navigatorObject: {},
+    execute: async () => { started(); await waiting; return 'A'; } });
+  const second = await registerTools({ tools, documentObject: {}, navigatorObject: {}, execute: async () => 'B' });
+  t.after(() => { first.dispose(); second.dispose(); });
+  const a = first.call('desigma_edit', { id: 1 });
+  await entered;
+  assert.equal(await second.call('desigma_edit', { id: 2 }), 'B');
+  release(); assert.equal(await a, 'A');
+});

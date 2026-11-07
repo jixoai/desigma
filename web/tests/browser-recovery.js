@@ -10,9 +10,9 @@ export async function recoveryRegression(api = window.desigma) {
   else await edit();
   const concurrent = await interrupted;
   await api.save();
-  const sessionId = sessionStorage.getItem('desigma-session');
+  const { recoveryPath } = api.stats();
   const db = await new Promise((resolve, reject) => { const request = indexedDB.open('desigma-browser-v1'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-  const entry = await new Promise((resolve, reject) => { const request = db.transaction('files').objectStore('files').get(`/sessions/${sessionId}.desigma`); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+  const entry = await new Promise((resolve, reject) => { const request = db.transaction('files').objectStore('files').get(recoveryPath); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
   db.close();
   const recovered = JSON.parse(entry.blob ? await entry.blob.text() : new TextDecoder().decode(entry.bytes));
   if (!Object.values(recovered.nodes).some(node => node.name === name)) throw new Error('Recovery snapshot lost the latest edit');

@@ -65,6 +65,26 @@ test('downloads and imports do not consume durable storage', async t => {
   assert.throws(() => reopened.read('/downloads/example.png'), { code: 'ENOENT' });
 });
 
+test('tabs keep same-named imports and downloads separate while saving different projects', async t => {
+  const first = await store(t);
+  const second = await new BrowserFileSystem({ name: first.name }).init();
+  t.after(async () => { await second.flush(); second.close(); });
+  for (const [fs, id, byte] of [[first, 'a', 1], [second, 'b', 2]]) {
+    fs.mkdir(`/library/projects/${id}/files`);
+    fs.write(`/library/projects/${id}/files/design.desigma`, new Uint8Array([byte]));
+    fs.write('/imports/design.svg', new Uint8Array([byte]));
+    fs.write('/downloads/design.png', new Uint8Array([byte]));
+  }
+  await Promise.all([first.flush(), second.flush()]);
+  assert.equal(first.read('/imports/design.svg')[0], 1);
+  assert.equal(second.read('/imports/design.svg')[0], 2);
+  assert.equal(first.read('/downloads/design.png')[0], 1);
+  assert.equal(second.read('/downloads/design.png')[0], 2);
+  const reopened = await new BrowserFileSystem({ name: first.name }).init(); t.after(() => reopened.close());
+  assert.equal((await reopened.hydrate('/library/projects/a/files/design.desigma'))[0], 1);
+  assert.equal((await reopened.hydrate('/library/projects/b/files/design.desigma'))[0], 2);
+});
+
 test('concurrent tabs cannot silently overwrite each other’s library manifests', async t => {
   const first = await store(t); first.write('/library/shared.json', new Uint8Array([0])); await first.flush();
   const second = await new BrowserFileSystem({ name: first.name }).init();

@@ -12,3 +12,5 @@ python3 scripts/serve-web.py --port 8080
 访问 <http://127.0.0.1:8080>。工具链与 HTTPS 部署配置见 [浏览器指南](browser.md#build-and-run)，构建产物发布见 [发布指南](releasing.md)。本仓库尚未指定线上站点。
 
 项目保存在当前浏览器的 IndexedDB 中。使用 Download .desigma 下载文件备份，避免清理站点数据后丢失项目。
+
+多个 agent 可以在同一浏览器中各开一个标签页，同时设计不同内容。新标签页不会自动恢复另一页的草稿；现代浏览器中刷新只恢复本页。让每个 agent 固定操作自己的标签页，使用不同的设计文件保存即可。项目库仍然共享，具体调用方式见 [并行 agent](browser.md#parallel-agents)。

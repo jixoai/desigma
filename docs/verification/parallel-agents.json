@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-07",
+  "scope": "Independent design tasks in two tabs of the same browser and origin; no access-control changes",
+  "browser_api": "document.modelContext",
+  "application_baseline": "1e32899148019aaa028d9367b700c2c9d006dc71",
+  "new_tab_borrows_latest_draft": false,
+  "fresh_launch_parameter_consumed": true,
+  "overlap_ms": 33707,
+  "agents": [
+    {
+      "tag": "A",
+      "own_layers_after_undo": 5,
+      "other_agent_layers": 0,
+      "library_saved": true,
+      "export_path": "/downloads/design.svg",
+      "export_bytes": 231,
+      "export_size": [
+        "120",
+        "80"
+      ],
+      "export_sha256": "3020d8bbaf774b97636d296cb47168c2681651ff9074172677ebf4841baa7680"
+    },
+    {
+      "tag": "B",
+      "own_layers_after_undo": 5,
+      "other_agent_layers": 0,
+      "library_saved": true,
+      "export_path": "/downloads/design.svg",
+      "export_bytes": 234,
+      "export_size": [
+        "180",
+        "100"
+      ],
+      "export_sha256": "ec82543f07d4a41984f5bacc3b76337a8bc3bd3b14e2bd38cda0078ff4603a93"
+    }
+  ],
+  "refresh_restores_own_session_and_content": true,
+  "copied_session_storage_gets_new_session": true,
+  "explicit_file_link_preserved": true,
+  "recovery_during_edit": {
+    "beforeNodes": 7,
+    "recoveredNodes": 8,
+    "completed": true
+  },
+  "download_verification": "Real Worker exports and per-tab browser file bytes verified; test intercepted the download click to avoid saving fixture files to the user downloads folder",
+  "unit_checks": {
+    "browser": 33,
+    "signaling": 2,
+    "maintenance_scripts": 14
+  },
+  "limitations": [
+    "Separate automation tab handles are required; calls to one tab share its document and queue.",
+    "Project library remains shared; agents should use different saved files and distinct shared cache paths.",
+    "Without Web Locks, each load starts a separate recovery session; saved library files remain available.",
+    "Overlap demonstrates concurrent tasks, not a multi-tab throughput or memory benchmark."
+  ],
+  "browser_smoke": [
+    "Appearance edit",
+    "Shared Undo",
+    "Shared Redo",
+    "Invalid batch rolls back",
+    "PNG Worker export",
+    "JPG Worker export",
+    "SVG Worker export",
+    "GIF Worker animation export",
+    "WEBM Worker animation export",
+    "Persistent project library",
+    "Absolute browser path opens a library file",
+    "Relative path rejected without replacing the document",
+    "Native WebMCP registration",
+    "Native WebMCP executes live editor"
+  ]
+}

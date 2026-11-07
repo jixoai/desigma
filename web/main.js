@@ -7,6 +7,7 @@ import { createPluginHost } from './plugins.js';
 import { captureSnapshot } from './snapshot.js';
 import { createConnections } from './connections.js';
 import { mountSharing } from './sharing.js';
+import { openSession } from './session.js';
 const compute = new ComputeWorker();
 
 const $ = id => document.getElementById(id);
@@ -14,7 +15,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const began = performance.now();
 let handle, fs, bridge, connections, sharing, savedRevision = null, saveTimer, saving = false;
-let sessionPath, saveTask, snapshotTail = Promise.resolve();
+let session, sessionPath, saveTask, snapshotTail = Promise.resolve();
 function snapshot(options = {}) {
   const task = snapshotTail.catch(() => {}).then(() => captureSnapshot(handle, options));
   snapshotTail = task;
@@ -47,6 +48,7 @@ async function persist(force = false) {
     try {
       let chunkMaxMs = 0;
       const blob = await snapshot({ onChunk: ms => { chunkMaxMs = Math.max(chunkMaxMs, ms); } });
+      session.assertActive();
       fs.writeBlob(sessionPath, blob);
       await fs.flush();
       savedRevision = stats.revision;
@@ -170,28 +172,9 @@ async function boot() {
   globalThis.desigmaFs = Object.fromEntries(['read', 'write', 'stat', 'readDir', 'mkdir', 'remove', 'rename', 'copy', 'kind'].map(name => [name, fs[name].bind(fs)]));
   fs.mkdir('/sessions');
   const params = new URLSearchParams(location.search);
-  let recovery;
-  let sessionId;
-  try { sessionId = !params.has('fresh') && !params.has('fixture') && sessionStorage.getItem('desigma-session'); } catch {}
-  sessionId ||= crypto.randomUUID();
-  // A duplicate tab may copy sessionStorage; Web Locks keeps recovery files independent.
-  if (navigator.locks) {
-    async function claim(id) {
-      return new Promise(resolve => {
-        navigator.locks.request(`desigma-session:${id}`, { ifAvailable: true }, lock => {
-          resolve(!!lock);
-          if (lock) return new Promise(release => window.addEventListener('pagehide', release, { once: true }));
-        }).catch(() => resolve(false));
-      });
-    }
-    if (!await claim(sessionId)) { sessionId = crypto.randomUUID(); await claim(sessionId); }
-  }
-  try { sessionStorage.setItem('desigma-session', sessionId); } catch {}
-  sessionPath = `/sessions/${sessionId}.desigma`;
-  if (!params.has('fixture') && !params.has('fresh') && !params.has('file')) {
-    const sessions = fs.readDir('/sessions').filter(path => path.endsWith('.desigma')).sort((a, b) => fs.stat(b).modified - fs.stat(a).modified);
-    recovery = fs.entries.has(sessionPath) ? sessionPath : sessions[0];
-  }
+  session = await openSession({ fs, params });
+  sessionPath = session.path;
+  const recovery = session.recovery;
   if (recovery) await fs.hydrate(recovery);
   if (params.has('file')) await hydrateLibraryFile(params.get('file'));
   $('loading-message').textContent = 'Loading the design engine…';
@@ -213,6 +196,7 @@ async function boot() {
     onStatus: message => sharing?.status(message) });
   bridge = await registerTools({ tools, execute: async (name, args, options) => {
     const t = performance.now();
+    session.assertActive();
     options.signal?.throwIfAborted();
     if (name === 'desigma_open_file') {
       if (args.file_id) await hydrateLibraryFile(args.file_id);
@@ -242,6 +226,7 @@ async function boot() {
       result = { path, bytes: bytes.byteLength, exported: true };
     } else {
       result = JSON.parse(handle.call(name, JSON.stringify(args)));
+      if (name === 'desigma_get_capabilities') result.session = { id: session.id, recovery_path: session.path };
       if (!options.definition.annotations?.readOnlyHint && !['desigma_set_view','desigma_select_nodes','desigma_present','desigma_allocate_node_ids'].includes(name) && !(name === 'desigma_execute_action' && /^(fit_|zoom_|select_|copy$|pixel_grid$|rulers$|layout_grids$|snap_pixel$)/.test(args.action))) {
         try { await persist(true); } catch (error) { result.persistence = { saved: false, error: error.message }; }
       }
@@ -255,7 +240,7 @@ async function boot() {
     mode: bridge.mode,
     tools: bridge.tools,
     call: bridge.call,
-    stats: () => ({ ...JSON.parse(handle.stats()), storage: fs.stats(), wasmBytes: performance.getEntriesByType('resource').find(e => e.name.endsWith('_bg.wasm'))?.decodedBodySize, readyMs: metrics.readyMs }),
+    stats: () => ({ ...JSON.parse(handle.stats()), sessionId: session.id, recoveryPath: session.path, storage: fs.stats(), wasmBytes: performance.getEntriesByType('resource').find(e => e.name.endsWith('_bg.wasm'))?.decodedBodySize, readyMs: metrics.readyMs }),
     metrics: () => structuredClone(metrics),
     save: () => persist(true),
     download: async () => download(`${JSON.parse(handle.stats()).name || 'Untitled'}.desigma`, new Uint8Array(await (await snapshot()).arrayBuffer())),
@@ -272,6 +257,11 @@ async function boot() {
   $('loading').hidden = true;
   metrics.readyMs = performance.now() - began;
   document.documentElement.dataset.ready = 'true';
+  // fresh is a one-time launch request; refreshing must restore this tab's work.
+  if (params.has('fresh')) {
+    const url = new URL(location.href); url.searchParams.delete('fresh');
+    history.replaceState(history.state, '', url);
+  }
   canvas.focus();
   await persist(true).catch(() => {});
   saveTimer = setInterval(() => {
@@ -286,7 +276,8 @@ async function boot() {
     navigator.serviceWorker.register('./sw.js', { type: 'module' }).catch(console.warn);
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden) persist(true).catch(() => {}); });
-  window.addEventListener('pagehide', () => { persist(true).catch(() => {}); });
+  // A page restored from the back/forward cache must claim its session again.
+  window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
   window.addEventListener('hashchange', () => { if (location.hash.startsWith('#join=')) { try { handle.receive_link(location.href); } catch (error) { notice(error); } } });
   window.addEventListener('beforeunload', event => {
     let unsaved = false;
