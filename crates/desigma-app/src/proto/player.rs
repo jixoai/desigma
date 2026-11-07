@@ -409,7 +409,7 @@ impl Player {
     }
 
     /// Deepest node from `target` up to its frame that has a reaction for `w`.
-    fn find_reactive(&self, target: NodeId, w: When) -> Option<NodeId> {
+    pub(crate) fn find_reactive(&self, target: NodeId, w: When) -> Option<NodeId> {
         let mut cur = Some(target);
         while let Some(id) = cur {
             if !self.reactions_on(id, w).is_empty() {

@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { registerTools } from '../webmcp.js';
+import { registerTools, validate } from '../webmcp.js';
 const tools = [{ name: 'desigma_edit', description: 'Edit a node', inputSchema: { type: 'object', properties: { id: { type: 'integer', minimum: 1 }, text: { type: 'string', maxLength: 10 } }, required: ['id'], additionalProperties: false }, annotations: { readOnlyHint: false } }];
+
+test('native command variants reject missing fields with actionable paths', () => {
+  const object=(properties,required)=>({type:'object',properties,required,additionalProperties:false});
+  const id={type:'integer',minimum:1};
+  const command={oneOf:[object({Insert:object({parent:id,index:{type:'integer',minimum:0},nodes:{type:'array',minItems:1}},['parent','index','nodes'])},['Insert']),object({Remove:object({id},['id'])},['Remove'])]};
+  assert.throws(()=>validate(command,{Insert:{parent:1}},'commands[2]'),/commands\[2\]\.Insert\.index is required/);
+  assert.throws(()=>validate(command,{Insert:{parent:1,index:0,nodes:[]}}),/array length/);
+  assert.throws(()=>validate(command,{Remove:{id:2},Insert:{parent:1,index:0,nodes:[{}]}}),/exactly one/);
+  validate(command,{Insert:{parent:1,index:0,nodes:[{}]}});
+  validate({type:['integer','null']},null);
+  assert.throws(()=>validate({type:['integer','null']},'2'));
+  assert.throws(()=>validate({type:'number',exclusiveMinimum:0},0));
+});
 test('registers current Document API with abortable lifecycle and input validation', async () => {
   const registered = [];
   const context = { async registerTool(tool, options) { registered.push({ tool, options }); } };

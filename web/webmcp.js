@@ -2,7 +2,22 @@
 // The fallback stays under window.desigma; it never pretends to be a browser API.
 export function validate(schema, value, path = 'arguments') {
   if (!schema) return;
+  if (schema.oneOf) {
+    // Command envelopes are discriminated by their single key. Validate that
+    // branch directly so missing fields keep their useful path in the error.
+    const candidates = value && typeof value === 'object' && !Array.isArray(value)
+      ? schema.oneOf.filter(s => s.required?.length === 1 && s.required[0] in value) : [];
+    if (candidates.length === 1) { validate(candidates[0], value, path); return; }
+    const matches = schema.oneOf.filter(s => { try { validate(s, value, path); return true; } catch { return false; } });
+    if (matches.length !== 1) throw new TypeError(`${path}: expected exactly one supported variant`);
+    return;
+  }
   if (schema.enum && !schema.enum.some(item => JSON.stringify(item) === JSON.stringify(value))) throw new TypeError(`${path}: unsupported value`);
+  if (Array.isArray(schema.type)) {
+    const matches = schema.type.some(type => { try { validate({ ...schema, type }, value, path); return true; } catch { return false; } });
+    if (!matches) throw new TypeError(`${path}: expected ${schema.type.join(' or ')}`);
+    return;
+  }
   const type = schema.type;
   if (type === 'object') {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${path} must be an object`);
@@ -10,7 +25,7 @@ export function validate(schema, value, path = 'arguments') {
     for (const [key, item] of Object.entries(value)) {
       const property = schema.properties?.[key];
       if (!property && schema.additionalProperties === false) throw new TypeError(`${path}.${key} is not supported`);
-      validate(property, item, `${path}.${key}`);
+      validate(property || (typeof schema.additionalProperties === 'object' ? schema.additionalProperties : undefined), item, `${path}.${key}`);
     }
   } else if (type === 'array') {
     if (!Array.isArray(value)) throw new TypeError(`${path} must be an array`);
@@ -24,7 +39,10 @@ export function validate(schema, value, path = 'arguments') {
   } else if (type === 'number' || type === 'integer') {
     if (typeof value !== 'number' || !Number.isFinite(value) || (type === 'integer' && !Number.isSafeInteger(value))) throw new TypeError(`${path} must be a finite ${type}`);
     if (value < (schema.minimum ?? -Infinity) || value > (schema.maximum ?? Infinity)) throw new RangeError(`${path}: number out of range`);
+    if (value <= (schema.exclusiveMinimum ?? -Infinity) || value >= (schema.exclusiveMaximum ?? Infinity)) throw new RangeError(`${path}: number out of range`);
     if (schema.multipleOf && Math.abs(value / schema.multipleOf - Math.round(value / schema.multipleOf)) > 1e-9) throw new RangeError(`${path}: invalid step`);
+  } else if (type === 'null' && value !== null) {
+    throw new TypeError(`${path} must be null`);
   }
 }
 

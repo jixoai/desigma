@@ -3,7 +3,7 @@
 纯 Web 设计工具——完全运行于浏览器的 Rust / WebAssembly 编辑器。只维护 **WASM** 产品形态，复用同一套文档、布局、渲染与撤销引擎：
 
 ```text
-设计界面 / Agent 操作 ──▶ WebMCP 工具面（58 个工具，共享文档与 Undo）
+设计界面 / Agent 操作 ──▶ WebMCP 工具面（64 个工具，共享文档与 Undo）
 Rust 编辑与渲染引擎   ──▶ WebAssembly + WebGPU（WebGL / CPU 兼容路径）
 本地项目与文件        ──▶ IndexedDB 按需加载 + 增量恢复 + 浏览器下载
 导入 / 导出 / 缩略图  ──▶ Web Worker（按需启动，空闲回收）
@@ -45,6 +45,10 @@ await window.desigma.call('desigma_create_node', {
 ```
 
 支持浏览器原生 `document.modelContext`；未支持时可用相同 JavaScript API。`.desigma` 文件、`desigma_*` 工具名及存储键保持兼容。接口清单随构建发布于 `tools.json`。
+
+复杂建稿先读取 `desigma_get_editing_guide`。`desigma_create_instance` 自动创建关联母版的完整实例；`desigma_render_preview` 直接返回 PNG，无需等待浏览器下载。原型可用 `desigma_inspect_prototype` 检查实际命中图层，再用 `desigma_test_prototype` 断言每条路径的目标页面和内容，检查过程不会修改设计稿。
+
+`desigma_inspect_components` 检查实例是否仍有有效母版和源图层，便于在重建规范板后发现断开的组件关联。
 
 [运行与 API](docs/browser.md) · [贡献指南](CONTRIBUTING.md) · [静态发布](docs/releasing.md) · [反馈问题](https://github.com/jixoai/desigma/issues)
 

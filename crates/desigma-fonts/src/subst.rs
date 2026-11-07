@@ -1,6 +1,16 @@
 /// Proprietary (or system-only) family -> open replacement. Keys are lowercase.
 /// Extend this table to add more; order does not matter.
 pub static SUBSTITUTIONS: &[(&str, &str)] = &[
+    // WASM cannot read operating-system font files. Use downloadable open CJK
+    // faces instead of requesting system-only family names from Fontsource.
+    ("pingfang sc", "Noto Sans SC"),
+    ("苹方-简", "Noto Sans SC"),
+    ("microsoft yahei", "Noto Sans SC"),
+    ("微软雅黑", "Noto Sans SC"),
+    ("heiti sc", "Noto Sans SC"),
+    ("songti sc", "Noto Serif SC"),
+    ("source han serif sc", "Noto Serif SC"),
+    ("source han sans sc", "Noto Sans SC"),
     // Inter: the closest open match for the UI system fonts.
     ("sf pro", "Inter"),
     ("sf pro text", "Inter"),
@@ -51,6 +61,10 @@ mod tests {
 
     #[test]
     fn maps_known_families() {
+        assert_eq!(substitute("PingFang SC"), Some("Noto Sans SC"));
+        assert_eq!(substitute("微软雅黑"), Some("Noto Sans SC"));
+        assert_eq!(substitute("Songti SC"), Some("Noto Serif SC"));
+        assert_eq!(substitute("Source Han Serif SC"), Some("Noto Serif SC"));
         assert_eq!(substitute("SF Pro Text"), Some("Inter"));
         assert_eq!(substitute("  sf pro display "), Some("Inter"));
         assert_eq!(substitute("-apple-system"), Some("Inter"));

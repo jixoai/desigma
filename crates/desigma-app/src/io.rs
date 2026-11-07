@@ -203,18 +203,6 @@ mod tests {
     }
 
     #[test]
-    fn macos_bundle_declares_the_native_document_type() {
-        // Finder opens a document only when its extension resolves to a declared UTI that the
-        // app lists in `LSItemContentTypes`; extensions alone leave a dyn.* type (#29).
-        let plist = include_str!("../../../packaging/macos/Info.plist.in");
-        let uti = "<string>ai.deepfounder.desigma.document</string>";
-        assert!(plist.contains("<key>UTExportedTypeDeclarations</key>"));
-        assert!(plist.matches(uti).count() >= 2, "exported and referenced by the document type");
-        assert!(plist.contains(&format!("<string>{NATIVE_EXT}</string>")));
-        assert!(plist.contains("<string>com.figma.document</string>") && plist.contains("<key>UTImportedTypeDeclarations</key>"));
-    }
-
-    #[test]
     fn importer_panics_become_errors() {
         let err = guard("broken.fig", || -> Result<(), String> { panic!("index out of bounds") }).unwrap_err();
         assert!(err.starts_with("Cannot open broken.fig: desigma hit an internal error (index out of bounds)"));

@@ -8,6 +8,10 @@ use desigma_platform::PathExt as _;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+mod authoring;
+mod guide;
+mod prototype;
+
 fn tool(name: &str, description: &str, properties: Value, required: &[&str], read_only: bool) -> Value {
     json!({"name":format!("desigma_{name}"),"description":description,
         "inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},
@@ -28,9 +32,15 @@ pub fn catalog() -> Value {
         tool("replace_document", "Replace the complete document from native JSON, including document kind and embedded assets. This resets Undo; refuses unsaved edits unless discard_changes=true. Use apply_commands for ordinary undoable edits.", json!({"document":{"type":"object"},"discard_changes":{"type":"boolean"}}), &["document"], false),
         tool("library_query", "Read library file metadata, trash, version history or published component libraries.", json!({"operation":{"type":"string","enum":["file","trash","versions","shared_libraries","shared_snapshot"]},"file_id":{"type":"string"},"library_id":{"type":"string"},"version":{"type":"integer","minimum":1}}), &["operation"], true),
         tool("library_edit", "Manage browser projects, folders, files, versions and published libraries. Removing projects/files moves them to Trash. empty_trash and delete_version are permanent and require confirm=true. Library operations are persisted independently of the editor Undo stack.", json!({"operation":{"type":"string","enum":["rename_project","trash_project","create_folder","rename_folder","move_folder","rename_file","duplicate_file","move_file","star_file","trash_file","restore","empty_trash","save_version","rename_version","delete_version","publish","unpublish","restore_library"]},"project_id":{"type":"string"},"file_id":{"type":"string"},"folder_id":{"type":"string"},"parent_id":{"type":"string"},"library_id":{"type":"string"},"name":{"type":"string","maxLength":1024},"label":{"type":"string","maxLength":1024},"description":{"type":"string","maxLength":100000},"starred":{"type":"boolean"},"version":{"type":"integer","minimum":1},"confirm":{"type":"boolean"}}), &["operation"], false),
-        tool("get_capabilities", "Describe the browser editor's full command, action and format surface.", json!({}), &[], true),
+        tool("get_capabilities", "Describe commands, actions, formats and authoring helpers. Read get_editing_guide before constructing native nodes or prototype reactions.", json!({}), &[], true),
+        tool("get_editing_guide", "Return executable native examples and contracts for insertion, components, text layout and prototype verification. Examples use placeholder IDs: allocate fresh IDs and use real parent IDs. Prefer create_instance over manually cloning components; render_preview avoids download waits; test_prototype verifies real hit testing.", json!({"topic":{"type":"string","enum":["all","commands","components","prototype","text"]}}), &[], true),
+        tool("create_instance", "Create a linked component instance with the complete mirrored subtree, property overrides and normal resize/layout behavior in one Undo step. Appends above existing siblings. Returns actual IDs and names; do not infer IDs from child positions.", authoring::instance_schema(), &["component_id","parent_id"], false),
+        tool("inspect_components", "Check reusable-component integrity: list masters and instances, report instances whose master or mirrored source is missing. An Instance node count alone does not prove the design still has reusable components, especially after rebuilding a component sheet.", json!({}), &[], true),
+        tool("inspect_prototype", "Read flow starts and named interaction nodes, their destinations, bounds, and click hit-test warnings. A reaction record alone is not proof of a working flow. Use test_prototype with expected frames and text to verify outcomes.", json!({"page_id":{"type":"integer","minimum":1}}), &[], true),
+        tool("test_prototype", "Run bounded pointer clicks and waits through the real prototype player on a private copy. Never changes the live design or Undo and never opens URLs. Click node centers or frame-local coordinates; returns actual hit/reaction nodes, frame text, variables, errors and assertion results. This tests player behavior; still inspect visual previews.", prototype::test_schema(), &["start_node_id","steps"], true),
+        tool("render_preview", "Render one layer as PNG in the browser worker and return mime_type, width, height and data_url. Does not write a file or trigger a download; use for visual inspection without waiting for download events. Inspect the returned image. Explicit export_asset is still available for deliverable downloads.", json!({"node_id":{"type":"integer","minimum":1},"scale":{"type":"number","minimum":0.25,"maximum":2,"default":1}}), &["node_id"], true),
         tool("get_document_json", "Read the complete native document including nodes, variables, components, prototypes, comments, decks, motion and embedded assets. Prefer list_nodes/get_node for large documents.", json!({}), &[], true),
-        tool("apply_commands", "Apply native document commands atomically as one undo step. Supports every node kind/property, variables, styles, components, prototypes, comments, board sessions, guides and motion. Read get_capabilities for the command format; get_node returns a node suitable for Update. Invalid batches leave the document unchanged.", json!({"commands":{"type":"array","minItems":1,"maxItems":1000,"items":{"type":"object"}}}), &["commands"], false),
+        tool("apply_commands", "Apply native document commands atomically as one undo step. Read get_editing_guide for valid examples. Insert is ONE subtree: {Insert:{parent,index,nodes:[root,...descendants]}}; use separate Insert commands for sibling roots. get_node returns a full node for Update; Update preserves parent/children (use Reparent for tree changes). Invalid batches leave the document unchanged.", json!({"commands":{"type":"array","minItems":1,"maxItems":1000,"items":guide::command_schema()}}), &["commands"], false),
         tool("execute_action", "Run an editor action on the current selection using the same dispatcher as menus and keyboard shortcuts. Actions that need information open the normal editor dialog.", json!({"action":{"type":"string","enum":actions().iter().map(|(n,_)|n).collect::<Vec<_>>()}}), &["action"], false),
         tool("get_view", "Read current page, viewport, selection, renderer and measured canvas render time.", json!({}), &[], true),
         tool("set_view", "Switch pages and set pan/zoom. Bounds are in document coordinates.", json!({"page_id":{"type":"integer","minimum":1},"x":{"type":"number"},"y":{"type":"number"},"zoom":{"type":"number","minimum":0.02,"maximum":256}}), &[], false),
@@ -80,7 +90,7 @@ pub fn catalog() -> Value {
 }
 
 fn parse<T: serde::de::DeserializeOwned>(v: Value) -> Result<T, String> {
-    serde_json::from_value(v).map_err(|e| e.to_string())
+    serde_path_to_error::deserialize(v).map_err(|e| format!("arguments.{}: {}", e.path(), e.inner()))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -141,6 +151,12 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
         return result;
     }
     match name {
+        "desigma_get_editing_guide" => guide::guide(args["topic"].as_str().unwrap_or("all")),
+        "desigma_create_instance" => authoring::create_instance(app, ctx, args),
+        "desigma_inspect_components" => Ok(authoring::inspect_components(&app.doc)),
+        "desigma_inspect_prototype" => prototype::inspect(app, args),
+        "desigma_test_prototype" => prototype::test(app, args),
+        "desigma_render_preview" => Err("This operation is handled by the browser worker adapter".into()),
         "desigma_get_node_templates" => Ok(node_templates()),
         "desigma_replace_document" => {
             editable(app)?;
@@ -162,7 +178,8 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
             json!({"runtime":"wasm","document_schema":"desigma-doc serde JSON", "commands":["Insert","Remove","Reparent","Update","InsertPage","RemovePage","SetFlows","SetStyles","SetComments","SetLibraryState","SetGuides","SetPrototypeDevice","SetVariables","SetBoardSession","SetNodeMotion","SetTimeline"],
             "example":{"commands":[{"Update":{"node":"full node object returned by desigma_get_node; edit its properties and submit here"}}]},
             "formats":{"import":["desigma","fig","pen","svg","Figma REST JSON","PNG","JPEG","WebP"],"export":["desigma","png","jpg","svg","pdf","gif","webm","png-zip","css","tailwind","react","swiftui","compose"]},
-            "actions":actions().iter().map(|(n,_)|n).collect::<Vec<_>>(),"max_layers":100000,"storage":"IndexedDB","network_transport":"browser"}),
+            "actions":actions().iter().map(|(n,_)|n).collect::<Vec<_>>(),"max_layers":100000,"storage":"IndexedDB","network_transport":"browser",
+            "authoring":{"guide":"desigma_get_editing_guide","instances":"desigma_create_instance","component_inspection":"desigma_inspect_components","preview":"desigma_render_preview","prototype_inspection":"desigma_inspect_prototype","prototype_test":"desigma_test_prototype"}}),
         ),
         "desigma_get_document_json" => serde_json::to_value(&app.doc).map_err(|e| e.to_string()),
         "desigma_apply_commands" => {
@@ -508,65 +525,73 @@ fn actions() -> Vec<(&'static str, crate::panels::menus::Action)> {
 /// Inserted subtrees are self-contained and cannot overwrite existing IDs.
 fn stage_commands(doc: &mut desigma_doc::Document, command: &Command) -> Result<(), String> {
     let Command::Batch(commands) = command else { return Err("Expected a command batch".into()) };
-    for command in commands {
-        match command {
-            Command::Batch(_) => return Err("Nested batches are not supported; use the top-level commands array".into()),
-            Command::Insert { nodes, .. } | Command::InsertPage { nodes, .. } => {
-                let parent = if let Command::Insert { parent, .. } = command { Some(*parent) } else { None };
-                let root = nodes.first().ok_or("Insert needs a subtree")?;
-                if parent.is_none() != matches!(root.kind, desigma_doc::NodeKind::Page { .. }) {
-                    return Err("Page roots must use InsertPage".into());
-                }
-                let mut by_id = std::collections::BTreeMap::new();
-                for node in nodes {
-                    if node.id.0 == 0 || doc.get(node.id).is_some() || by_id.insert(node.id, node).is_some() {
-                        return Err("Insert IDs must be fresh and unique".into());
-                    }
-                }
-                let mut seen = std::collections::BTreeSet::new();
-                let mut stack = vec![(root.id, 0usize)];
-                while let Some((id, depth)) = stack.pop() {
-                    if depth > 255 || !seen.insert(id) {
-                        return Err("Inserted subtree contains a cycle or duplicate child".into());
-                    }
-                    let node = by_id.get(&id).ok_or("Inserted subtree references a missing child")?;
-                    if !node.kind.is_container() && !node.children.is_empty() {
-                        return Err("Only containers can have children".into());
-                    }
-                    for child in &node.children {
-                        if by_id.get(child).is_none_or(|n| n.parent != Some(id)) {
-                            return Err("Inserted subtree has inconsistent parent links".into());
-                        }
-                        stack.push((*child, depth + 1));
-                    }
-                }
-                if seen.len() != nodes.len() {
-                    return Err("Insert contains unreachable nodes".into());
-                }
-                if let Some(parent) = parent {
-                    if doc.get(parent).is_none_or(|n| !n.kind.is_container()) {
-                        return Err("Insert parent is not a container".into());
-                    }
-                }
-            }
-            Command::Update { node } => {
-                let old = doc.get(node.id).ok_or("Unknown node")?;
-                if !node.kind.is_container() && !old.children.is_empty() {
-                    return Err("Cannot turn a container with children into a leaf".into());
-                }
-                if matches!(old.kind, desigma_doc::NodeKind::Page { .. }) != matches!(node.kind, desigma_doc::NodeKind::Page { .. }) {
-                    return Err("Cannot change page/root kind".into());
-                }
-            }
-            Command::SetGuides { page, .. } | Command::SetTimeline { page, .. } => {
-                if !doc.pages.contains(page) {
-                    return Err("Unknown page".into());
-                }
-            }
-            _ => {}
-        }
-        command.clone().apply(doc).map_err(|e| e.to_string())?;
+    for (index, command) in commands.iter().enumerate() {
+        stage_command(doc, command).map_err(|error| format!("commands[{index}]: {error}"))?;
     }
+    Ok(())
+}
+
+fn stage_command(doc: &mut desigma_doc::Document, command: &Command) -> Result<(), String> {
+    match command {
+        Command::Batch(_) => return Err("Nested batches are not supported; use the top-level commands array".into()),
+        Command::Insert { nodes, .. } | Command::InsertPage { nodes, .. } => {
+            let parent = if let Command::Insert { parent, .. } = command { Some(*parent) } else { None };
+            let root = nodes.first().ok_or("Insert needs a subtree")?;
+            if parent.is_none() != matches!(root.kind, desigma_doc::NodeKind::Page { .. }) {
+                return Err("Page roots must use InsertPage".into());
+            }
+            let mut by_id = std::collections::BTreeMap::new();
+            for node in nodes {
+                if node.id.0 == 0 || doc.get(node.id).is_some() || by_id.insert(node.id, node).is_some() {
+                    return Err("Insert IDs must be fresh and unique".into());
+                }
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            let mut stack = vec![(root.id, 0usize)];
+            while let Some((id, depth)) = stack.pop() {
+                if depth > 255 || !seen.insert(id) {
+                    return Err("Inserted subtree contains a cycle or duplicate child".into());
+                }
+                let node = by_id.get(&id).ok_or_else(|| format!("Inserted subtree references missing child {}", id.0))?;
+                if !node.kind.is_container() && !node.children.is_empty() {
+                    return Err("Only containers can have children".into());
+                }
+                for child in &node.children {
+                    if by_id.get(child).is_none_or(|n| n.parent != Some(id)) {
+                        return Err(format!("Inserted child {} must have parent {} and be included in nodes", child.0, id.0));
+                    }
+                    stack.push((*child, depth + 1));
+                }
+            }
+            if seen.len() != nodes.len() {
+                let unreachable = by_id.keys().filter(|id| !seen.contains(id)).take(10).map(|id| id.0).collect::<Vec<_>>();
+                return Err(format!(
+                    "Insert contains unreachable nodes {unreachable:?}. Each Insert accepts one subtree; use separate Insert commands for sibling roots"
+                ));
+            }
+            if let Some(parent) = parent {
+                if doc.get(parent).is_none_or(|n| !n.kind.is_container()) {
+                    return Err("Insert parent is not a container".into());
+                }
+            }
+        }
+        Command::Update { node } => {
+            let old = doc.get(node.id).ok_or("Unknown node")?;
+            if !node.kind.is_container() && !old.children.is_empty() {
+                return Err("Cannot turn a container with children into a leaf".into());
+            }
+            if matches!(old.kind, desigma_doc::NodeKind::Page { .. }) != matches!(node.kind, desigma_doc::NodeKind::Page { .. }) {
+                return Err("Cannot change page/root kind".into());
+            }
+        }
+        Command::SetGuides { page, .. } | Command::SetTimeline { page, .. } => {
+            if !doc.pages.contains(page) {
+                return Err("Unknown page".into());
+            }
+        }
+        _ => {}
+    }
+    command.clone().apply(doc).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -774,5 +799,151 @@ mod tests {
         for tool in desigma_mcp::catalog::tools() {
             assert!(names.contains(tool["name"].as_str().unwrap()));
         }
+    }
+
+    #[test]
+    fn guide_examples_create_resizable_linked_instances_in_one_undo_step() {
+        use desigma_doc::*;
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let guide = call(&mut app, &ctx, "desigma_get_editing_guide", json!({"topic":"components"})).unwrap();
+        call(&mut app, &ctx, "desigma_apply_commands", guide["master_example"].clone()).unwrap();
+        let before = app.doc.to_json().unwrap();
+        let result = call(
+            &mut app,
+            &ctx,
+            "desigma_create_instance",
+            json!({"component_id":100,"parent_id":1,"name":"Wide button","width":342,"properties":{"Label":"确认预约"}}),
+        )
+        .unwrap();
+        let root = NodeId(result["node_id"].as_u64().unwrap());
+        let n = app.doc.get(root).unwrap();
+        assert_eq!(n.size.x, 342.0);
+        assert_eq!(n.name, "Wide button");
+        assert_eq!(instance_component(n), Some(NodeId(100)));
+        let label = app.doc.get(n.children[0]).unwrap();
+        assert_eq!(label.component.source, Some(NodeId(101)));
+        assert_eq!(label.size.x, 310.0);
+        assert!(matches!(&label.kind,NodeKind::Text(t) if t.content=="确认预约"));
+        assert!(call(&mut app, &ctx, "desigma_undo", json!({})).unwrap()["changed"].as_bool().unwrap());
+        // ID reservations may advance across Undo; content and component master stay intact.
+        assert!(app.doc.get(root).is_none());
+        assert_eq!(app.doc.nodes.len(), serde_json::from_str::<Document>(&before).unwrap().nodes.len());
+        call(&mut app, &ctx, "desigma_redo", json!({})).unwrap();
+        assert!(app.doc.get(root).is_some());
+        let snapshot = app.doc.to_json().unwrap();
+        assert!(call(&mut app, &ctx, "desigma_create_instance", json!({"component_id":100,"parent_id":1,"properties":{"Unknown":"oops"}})).is_err());
+        assert_eq!(snapshot, app.doc.to_json().unwrap());
+    }
+
+    #[test]
+    fn native_errors_identify_command_index_and_nested_field() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let bad = json!({"commands":[{"Insert":{"parent":1,"index":0,"nodes":[]}}, {"Remove":{"id":"wrong"}}]});
+        let e = call(&mut app, &ctx, "desigma_apply_commands", bad).unwrap_err();
+        assert!(e.contains("commands[1].Remove.id"), "{e}");
+        let mut a = desigma_doc::Node::frame(NodeId(100), desigma_doc::Rect::new(0.0, 0.0, 20.0, 20.0));
+        let mut b = a.clone();
+        b.id = NodeId(101);
+        a.name = "first".into();
+        let e = call(&mut app, &ctx, "desigma_apply_commands", json!({"commands":[{"Insert":{"parent":1,"index":0,"nodes":[a,b]}}]})).unwrap_err();
+        assert!(e.contains("commands[0]") && e.contains("101") && e.contains("sibling roots"), "{e}");
+    }
+
+    #[test]
+    fn component_inspection_reports_instances_left_after_master_deletion() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let guide = guide::guide("components").unwrap();
+        call(&mut app, &ctx, "desigma_apply_commands", guide["master_example"].clone()).unwrap();
+        call(&mut app, &ctx, "desigma_create_instance", json!({"component_id":100,"parent_id":1})).unwrap();
+        let intact = call(&mut app, &ctx, "desigma_inspect_components", json!({})).unwrap();
+        assert_eq!(intact["master_count"], 1);
+        assert_eq!(intact["unresolved_master_count"], 0);
+        call(&mut app, &ctx, "desigma_delete_node", json!({"node_id":100})).unwrap();
+        let missing = call(&mut app, &ctx, "desigma_inspect_components", json!({})).unwrap();
+        assert_eq!(missing["master_count"], 0);
+        assert_eq!(missing["instance_count"], 1);
+        assert_eq!(missing["unresolved_master_count"], 1);
+        call(&mut app, &ctx, "desigma_undo", json!({})).unwrap();
+        assert_eq!(call(&mut app, &ctx, "desigma_inspect_components", json!({})).unwrap()["unresolved_master_count"], 0);
+    }
+
+    fn prototype_fixture() -> App {
+        use desigma_doc::*;
+        let mut doc = Document::new("Prototype regression");
+        let page = doc.add_page("Mobile");
+        for (id, name) in [(10, "Home"), (20, "Review")] {
+            let mut n = Node::frame(NodeId(id), Rect::new(0.0, 0.0, 390.0, 844.0));
+            n.name = name.into();
+            doc.insert(page, n).unwrap();
+        }
+        let mut button = Node::frame(NodeId(11), Rect::new(24.0, 100.0, 342.0, 52.0));
+        button.name = "Next day".into();
+        button.prototype.reactions =
+            vec![Reaction { trigger: Trigger::OnClick, actions: vec![Action::Navigate { dest: NodeId(20), preserve_scroll: false }], transition: None }];
+        doc.insert(NodeId(10), button).unwrap();
+        let label = Node::text(NodeId(12), Rect::new(30.0, 10.0, 280.0, 30.0), "11月22日", TextStyle::default());
+        doc.insert(NodeId(11), label).unwrap();
+        let text = Node::text(NodeId(21), Rect::new(24.0, 50.0, 342.0, 32.0), "11月21日 · ¥536", TextStyle::default());
+        doc.insert(NodeId(20), text).unwrap();
+        let mut back = Node::frame(NodeId(22), Rect::new(24.0, 700.0, 342.0, 52.0));
+        back.name = "Back".into();
+        back.prototype.reactions = vec![Reaction { trigger: Trigger::OnClick, actions: vec![Action::Back], transition: None }];
+        doc.insert(NodeId(20), back).unwrap();
+        doc.flows.push(Flow { name: "Review only".into(), description: String::new(), page, start: NodeId(20) });
+        App::new(doc)
+    }
+
+    #[test]
+    fn prototype_runner_uses_real_hit_testing_text_assertions_and_back_history() {
+        let mut app = prototype_fixture();
+        let ctx = egui::Context::default();
+        let before = app.doc.to_json().unwrap();
+        let result = call(
+            &mut app,
+            &ctx,
+            "desigma_test_prototype",
+            json!({"start_node_id":10,"steps":[
+                {"node_id":11,"expect_frame_id":20,"expect_texts":["11月22日"]},
+                {"node_id":22,"expect_frame_id":10}
+            ]}),
+        )
+        .unwrap();
+        assert_eq!(result["passed"], false);
+        assert_eq!(result["steps"][0]["hit"]["node_id"], 12);
+        assert_eq!(result["steps"][0]["reaction"]["node_id"], 11);
+        assert_eq!(result["steps"][0]["missing_texts"], json!(["11月22日"]));
+        assert_eq!(result["steps"][1]["passed"], true);
+        assert_eq!(app.doc.to_json().unwrap(), before);
+        assert!(!app.hist.can_undo());
+        let unasserted = call(&mut app, &ctx, "desigma_test_prototype", json!({"start_node_id":10,"steps":[{"node_id":11}]})).unwrap();
+        assert_eq!(unasserted["passed"], false);
+        assert_eq!(unasserted["steps"][0]["asserted"], false);
+        let report = call(&mut app, &ctx, "desigma_inspect_prototype", json!({})).unwrap();
+        assert!(report["warnings"].as_array().unwrap().iter().any(|w| w["code"] == "back_at_flow_start"));
+        let result = call(&mut app, &ctx, "desigma_test_prototype", json!({"start_node_id":20,"steps":[{"node_id":22,"expect_frame_id":10}]})).unwrap();
+        assert_eq!(result["passed"], false);
+    }
+
+    #[test]
+    fn prototype_runner_does_not_click_through_sibling_text_or_open_urls() {
+        use desigma_doc::*;
+        let mut app = prototype_fixture();
+        let ctx = egui::Context::default();
+        app.doc.reparent(NodeId(12), NodeId(10), 1).unwrap();
+        app.doc.get_mut(NodeId(12)).unwrap().transform = Affine::translate(54.0, 110.0);
+        let r = call(&mut app, &ctx, "desigma_test_prototype", json!({"start_node_id":10,"steps":[{"node_id":11,"expect_frame_id":20}]})).unwrap();
+        assert_eq!(r["passed"], false);
+        assert_eq!(r["steps"][0]["hit"]["node_id"], 12);
+        assert!(r["steps"][0]["reaction"].is_null());
+        let report = call(&mut app, &ctx, "desigma_inspect_prototype", json!({})).unwrap();
+        assert!(report["warnings"].as_array().unwrap().iter().any(|w| w["code"] == "click_sample_misses"));
+        app.doc.get_mut(NodeId(12)).unwrap().prototype.reactions =
+            vec![Reaction { trigger: Trigger::OnClick, actions: vec![Action::OpenUrl { url: "https://example.com".into(), new_tab: true }], transition: None }];
+        let r = call(&mut app, &ctx, "desigma_test_prototype", json!({"start_node_id":10,"steps":[{"node_id":11}]})).unwrap();
+        assert_eq!(r["passed"], false);
+        assert_eq!(r["steps"][0]["blocked_external_effects"].as_array().unwrap().len(), 1);
     }
 }

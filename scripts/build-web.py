@@ -22,7 +22,9 @@ def main():
     parser.add_argument('--assets-only', action='store_true', help='Refresh browser assets and service worker, reusing existing optimized dist/pkg bindings (JS/CSS-only changes)')
     parser.add_argument('--no-opt', action='store_true', help='Skip Binaryen optimization for iteration')
     parser.add_argument('--bindgen', default=os.environ.get('WASM_BINDGEN', 'wasm-bindgen'))
+    parser.add_argument('--out-dir', type=Path, default=ROOT/'dist', help='Static output directory; use a separate directory while agents use an existing build')
     args = parser.parse_args()
+    dist = args.out_dir.resolve()
     locked = re.search(r'name = "wasm-bindgen"\nversion = "([^"]+)"', (ROOT/'Cargo.lock').read_text())[1]
     try: installed = subprocess.check_output([args.bindgen, '--version'], text=True).strip().split()[-1]
     except (FileNotFoundError, subprocess.CalledProcessError): installed = None
@@ -37,14 +39,13 @@ def main():
                 break
     if installed != locked:
         parser.error(f'Install matching CLI: cargo install wasm-bindgen-cli --version {locked} --locked (or set WASM_BINDGEN)')
-    if args.assets_only and not (ROOT/'dist/pkg/desigma_app_bg.wasm').is_file():
-        parser.error('--assets-only requires a previously completed WASM build in dist/pkg')
+    if args.assets_only and not (dist/'pkg/desigma_app_bg.wasm').is_file():
+        parser.error(f'--assets-only requires a previously completed WASM build in {dist}/pkg')
     if not args.skip_build and not args.assets_only:
         env = os.environ.copy()
         env['RUSTFLAGS'] = (env.get('RUSTFLAGS', '') + ' -C target-feature=+simd128').strip()
         run('cargo','build','--locked','-p','desigma-app','--lib','--target','wasm32-unknown-unknown','--no-default-features','--profile','web-release',env=env)
-    dist = ROOT/'dist'
-    dist.mkdir(exist_ok=True)
+    dist.mkdir(parents=True, exist_ok=True)
     for path in (ROOT/'web').iterdir():
         if path.suffix in {'.js','.css','.html','.png','.webmanifest'} or path.name == '_headers': shutil.copy2(path, dist/path.name)
     # Ship the maintained plugin package and attribution with the editor for offline use.
@@ -70,8 +71,8 @@ def main():
         run(optimizer,'-O3','--enable-simd','--enable-bulk-memory','--enable-nontrapping-float-to-int','--enable-mutable-globals','--enable-sign-ext',wasm,'-o',wasm.with_suffix('.opt.wasm'))
         wasm.with_suffix('.opt.wasm').replace(wasm)
     # Emit the exact schemas compiled into this build, without starting the UI.
-    node_script = "import {readFileSync} from 'node:fs'; import init, {tool_catalog} from './dist/pkg/desigma_app.js'; await init({module_or_path:readFileSync('./dist/pkg/desigma_app_bg.wasm')}); process.stdout.write(tool_catalog());"
-    catalog = subprocess.check_output(['node', '--input-type=module', '-e', node_script], cwd=ROOT, text=True)
+    node_script = "import {readFileSync} from 'node:fs'; const {default:init,tool_catalog}=await import(process.argv[1]); await init({module_or_path:readFileSync(process.argv[2])}); process.stdout.write(tool_catalog());"
+    catalog = subprocess.check_output(['node', '--input-type=module', '-e', node_script, (dist/'pkg/desigma_app.js').as_uri(), str(dist/'pkg/desigma_app_bg.wasm')], cwd=ROOT, text=True)
     (dist/'tools.json').write_text(json.dumps(json.loads(catalog),indent=2)+'\n')
     assets = sorted(p for p in dist.rglob('*') if p.is_file() and p.suffix not in {'.gz','.br'} and p.name not in {'sw.js','build.json','_headers'} and 'tests' not in p.relative_to(dist).parts)
     build_id = hashlib.sha256(b''.join(p.read_bytes() for p in assets)).hexdigest()[:16]

@@ -42,6 +42,8 @@ After one successful online load, the service worker caches the static editor fo
 
 If an older tab still shows Chinese squares after updating, save its work and reopen it so the new WASM/service worker can load. Clearing browser site data is not required. [Chinese font investigation and verification](verification/chinese-fonts/README.md) records the faulty font URLs, cache migration and cold-cache export checks.
 
+For a local verification build while other agents are using the current editor, use `python3 scripts/build-web.py --out-dir /tmp/desigma-next` and `python3 scripts/serve-web.py --port 13728 --dir /tmp/desigma-next`. This leaves the existing `dist/` build in place.
+
 ## WebMCP
 
 The catalog is shared with native MCP; browser operations target the live editor and share its Undo stack, layout and component propagation. The adapter prefers the November 2026 draft's `document.modelContext`, supports earlier `navigator.modelContext` implementations, and exposes an explicit JavaScript fallback without replacing either browser API.
@@ -66,7 +68,9 @@ const result = JSON.parse(await document.modelContext.executeTool(tool, {}));
 | Capability | Tools |
 | --- | --- |
 | Read/edit layers and pages | Original native MCP tools, node templates, atomic native command batches |
-| Layout, vectors, components, variants, ordering, text | `execute_action`, `apply_commands`, `get_node_templates` |
+| Layout, vectors, components, variants, ordering, text | `execute_action`, `apply_commands`, `get_node_templates`, `get_editing_guide`, `create_instance`, `inspect_components` |
+| Visual previews without download events | `render_preview` returns PNG dimensions and a data URL from the export worker |
+| Prototype verification | `inspect_prototype`, `test_prototype` (scratch player, actual hit tests and outcome assertions) |
 | Variables, shared styles, prototype flows/devices, comments, board sessions, guides | Native command batches and variable import/export |
 | Viewport and selection | `get_view`, `set_view`, `get_selection`, `select_nodes` |
 | Motion and presentation | Keyframes, presets, timeline, `present`, animation export |
@@ -76,7 +80,37 @@ const result = JSON.parse(await document.modelContext.executeTool(tool, {}));
 | Collaboration | Share/join/end, status, invitation/reply links, optional automatic signaling, WebRTC offer/answer tools |
 | Entire document including all native properties | `get_document_json`, `replace_document`, `apply_commands` |
 
-Get `get_capabilities` and `get_node_templates` to discover the native command format. Reserve IDs with `allocate_node_ids` before Insert. `apply_commands` validates a scratch document, rejects duplicate IDs/cycles, and commits one shared undo step. `replace_document` resets history and requires an explicit discard flag when edits exist. Permanent library deletions require `confirm: true`. The adapter validates schemas, snapshots inputs, serializes calls, yields between calls and honors cancellation before mutations. Worker exports can be terminated on cancellation; completed mutations are not rolled back merely because the caller subsequently aborts.
+Get `get_capabilities`, `get_editing_guide` and `get_node_templates` to discover the native command format. The guide has valid serialized examples for commands, component properties, text layout and prototype reactions. Command schemas describe the command envelopes; nested native node values are validated in Rust, with the field path included in parse errors. Reserve IDs with `allocate_node_ids` before Insert. Each Insert contains one subtree with root first, consistent `parent`/`children` links, and explicit `parent`, `index`, `nodes`; put sibling roots in separate commands in the same batch. `apply_commands` validates a scratch document, rejects duplicate IDs/cycles, and commits one shared undo step. `replace_document` resets history and requires an explicit discard flag when edits exist. Permanent library deletions require `confirm: true`. The adapter validates schemas, snapshots inputs, serializes calls, yields between calls and honors cancellation before mutations. Worker exports can be terminated on cancellation; completed mutations are not rolled back merely because the caller subsequently aborts.
+
+### Authoring and checking a design
+
+`create_instance` takes a component master, parent, position, optional dimensions and plain property values. It creates the full mirrored subtree and source links using the editor's component engine, applies overrides, resizes through normal constraints/layout, and appends the result above existing siblings in one Undo step. The result identifies actual nodes by ID and name. `inspect_components` reports missing masters and mirrored sources after edits; an Instance node count alone is not proof of reusable components. Preserve masters when rebuilding a component sheet. Use Stretch constraints or auto layout for children that should adapt to a resized instance; fixed-width children stay fixed.
+
+```js
+const guide = await desigma.call('desigma_get_editing_guide', { topic: 'components' });
+// Use real IDs discovered from your document:
+const instance = await desigma.call('desigma_create_instance', {
+  component_id: masterId, parent_id: frameId, x: 24, y: 700,
+  width: 342, height: 52, properties: { Label: '确认预约' }
+});
+const preview = await desigma.call('desigma_render_preview', { node_id: frameId, scale: 1 });
+// Inspect preview.data_url as an image; no download event is emitted or needed.
+const inspection = await desigma.call('desigma_inspect_prototype', {});
+const result = await desigma.call('desigma_test_prototype', {
+  start_node_id: frameId,
+  steps: [{ node_id: instance.node_id, expect_frame_id: confirmationId, expect_texts: ['预约已登记', '¥536'] }]
+});
+```
+
+Prototype inspection returns named reaction sources/destinations, three sampled click points, and warnings for missed hit targets, small targets, invalid destinations, and Back actions at a flow start. These are diagnostics, not proof that a flow works. Put button text/icons inside the reactive container: a sibling label can cover an otherwise clickable background.
+
+Native JSON omits empty prototype properties. When adding the first reaction to a node, initialize `node.prototype` with `{ reactions: [], overflow: 'None', fixed_children: [], videos: [] }` before assigning reactions. An Update must contain the full node read from `get_node`.
+
+Prototype tests use the same player and hit testing as Present, on a private copy. Click a node's center or specify `x`/`y` in the current frame's coordinates. Each step returns the actual hit and reaction node, current frame, text content, variables and assertions. Test every selection, error exit and return path with expected frame IDs **and** content. A successful Navigate does not prove the selected date or price was preserved. Back requires history, so standalone error flows need explicit Navigate exits. Text assertions check node content, not clipping or pixel visibility; inspect previews too. External URL actions are blocked and fail the test. Tests do not alter the live document, presentation or Undo history.
+
+A step without an expected frame or text is reported as an observation (`asserted: false`), not a passing verification. In a disposable editor tab, run `runAuthoringChecks` from `tests/browser-authoring.js` with a tool-call function to exercise components, Undo/Redo, master propagation, hit testing, date assertions and worker previews together.
+
+Preview rendering uses the export worker, supports scale 0.25–2 and caps returned PNG data at 8 MiB. Use `export_asset` for explicit downloads and larger output. Common system-only Chinese font names such as PingFang SC are substituted with open Noto families; the browser may need to download these faces and their metrics can differ from the original system font.
 
 Agent access defaults on for the browser app and can be disabled in Preferences or the Agent pill. The saved setting persists; calls then reject. No agent credentials or host filesystem access are exposed. Returned document content is marked untrusted. The current WebMCP spec is a draft and browser support varies; `window.desigma.mode` reports the selected interface.
 
@@ -114,7 +148,7 @@ Same-origin tabs communicate through BroadcastChannel. Cross-device peers use or
 
 The optional self-hosted service in `web/signaling/` relays only connection descriptions, keeps rooms in memory, checks configured origins and invitation secrets, and bounds messages, peers and room lifetime. See [its setup guide](../web/signaling/README.md). It is not deployed automatically. The editor remains a static application; the service is optional for connection setup.
 
-WebMCP exposes the same flows through `desigma_create_collaboration_link` and `desigma_accept_collaboration_link` (58 tools total). The lower-level `create_peer_offer` / `accept_peer_offer` / `accept_peer_answer` tools remain available. Accepting an answer means connection setup started, not that the guest has already joined. Check `get_collaboration` or `desigmaNet.status()` for actual state.
+WebMCP exposes the same flows through `desigma_create_collaboration_link` and `desigma_accept_collaboration_link` (64 tools total). The lower-level `create_peer_offer` / `accept_peer_offer` / `accept_peer_answer` tools remain available. Accepting an answer means connection setup started, not that the guest has already joined. Check `get_collaboration` or `desigmaNet.status()` for actual state.
 
 Optional `ice_servers` supply STUN/TURN where direct networking is unavailable; configure each device. Signaling alone does not traverse every NAT or firewall. No public TURN service is selected. Native iroh/QUIC tickets remain incompatible with browser tickets. Passwords, host approval and viewer/editor roles continue through the existing collaboration core. Same-machine WebRTC with BroadcastChannel disabled is tested; remote internet connectivity still needs validation with your deployment and networks.
 

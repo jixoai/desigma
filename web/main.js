@@ -1,6 +1,7 @@
 import init, { start } from './pkg/desigma_app.js';
 import { BrowserFileSystem } from './storage.js';
 import { registerTools } from './webmcp.js';
+import { renderPreview } from './preview.js';
 import { createTransport } from './collaboration.js';
 import { ComputeWorker } from './worker-client.js';
 import { createPluginHost } from './plugins.js';
@@ -212,6 +213,9 @@ async function boot() {
       result = name === 'desigma_create_peer_offer' ? await desigmaNet[method](args.ice_servers || [])
         : name === 'desigma_accept_peer_offer' ? await desigmaNet[method](args.offer, args.ice_servers || [])
         : (await desigmaNet[method](args.answer), { status: 'connecting' });
+    } else if (name === 'desigma_render_preview') {
+      if (!JSON.parse(handle.stats()).agents) throw new Error('Agent access is disabled');
+      result = await renderPreview({ args, compute, snapshot: () => snapshot(options), fonts: workerFonts(), signal: options.signal });
     } else if (['desigma_export_image', 'desigma_export_animation', 'desigma_export_asset'].includes(name)) {
       if (!JSON.parse(handle.stats()).agents) throw new Error('Agent access is disabled');
       const path = fs.normalize(args.path);
