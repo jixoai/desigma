@@ -240,8 +240,6 @@ pub fn run(app: &mut App, ctx: &Context, a: Action) {
         }
         Action::SetLanguage(lang) => {
             app.set_language(lang);
-            #[cfg(target_arch = "wasm32")]
-            crate::theme::install_cjk_fallback(ctx);
         }
         Action::CheckForUpdates => app.check_for_updates(ctx, true),
         Action::Shortcuts => app.show_shortcuts(),

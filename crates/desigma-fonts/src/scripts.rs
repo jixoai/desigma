@@ -42,6 +42,7 @@ impl Script {
     pub fn system_alternatives(self) -> &'static [&'static str] {
         match self {
             Script::Han | Script::Kana => &[
+                "FDE2E UI CJK",
                 "Noto Sans CJK SC",
                 "Noto Sans CJK JP",
                 "Source Han Sans SC",

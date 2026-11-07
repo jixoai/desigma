@@ -55,6 +55,8 @@ def main():
     for name in ['LICENSE-MIT', 'LICENSE-APACHE', 'THIRD_PARTY_NOTICES.md', 'FORK.md']:
         shutil.copy2(ROOT/name, dist/'licenses'/name)
     shutil.copy2(ROOT/'crates/desigma-fonts/assets/inter/OFL.txt', dist/'licenses/Inter-OFL.txt')
+    shutil.copy2(ROOT/'crates/desigma-fonts/assets/cjk/OFL.txt', dist/'licenses/FDE2E-UI-CJK-OFL.txt')
+    shutil.copy2(ROOT/'crates/desigma-fonts/assets/cjk/README.md', dist/'licenses/FDE2E-UI-CJK-NOTICE.md')
     shutil.copy2(ROOT/'crates/desigma-app/assets/icons/lucide/LICENSE', dist/'licenses/Lucide-LICENSE')
     (dist/'tests').mkdir(exist_ok=True)
     for path in (ROOT/'web/tests').glob('browser-*.js'): shutil.copy2(path,dist/'tests'/path.name)

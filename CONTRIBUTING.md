@@ -40,6 +40,12 @@ Use `desigma_platform::fs`, `PathExt` and `web_time` in browser-reachable code. 
 
 Format the files you change, keep rendering deterministic, and add behavior tests for consequential changes. Preserve the licenses and attribution of test documents and assets; do not commit private design files or generated build output.
 
+## Product design ownership
+
+Design explorations for other products belong in those products’ repositories. Keep candidate status and Owner decisions explicit; a prototype check or Git commit does not approve a design. Store editable sources, attribution and a small set of review previews there, and rebuild large exports outside Git.
+
+Use minimal licensed fixtures when an editor regression needs a design example. Generic fixes to fonts, rendering, storage and WebMCP remain in Desigma, with the evidence and attribution needed to maintain them.
+
 ## Upstream updates and commits
 
 Use feature branches based on `browser-wasm`. `main` is only an upstream mirror. Read [upstream-sync.md](docs/upstream-sync.md) before merging upstream, especially changes to the original entry point, platform calls or dependency locks.

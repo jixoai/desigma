@@ -21,7 +21,7 @@ mod request;
 mod scripts;
 mod subst;
 
-pub use assets::{bundled, bundled_for, FontAsset};
+pub use assets::{bundled, bundled_for, FontAsset, BROWSER_CJK};
 pub use cache::{app_cache_dir, Fetch, FontCache, Sidecar};
 pub use ensure::{ensure_fonts, ensure_fonts_with, FontReport, LoadedFont};
 pub use error::FontError;

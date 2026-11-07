@@ -32,7 +32,8 @@ impl FontLoader {
     /// Starts resolving the document's fonts; a previous load is abandoned.
     pub fn load_for(&mut self, doc: &Document) {
         // Fonts the text names, plus the Noto fallbacks of the complex scripts it uses (Arabic, Hebrew, Devanagari, CJK).
-        let mut requests = desigma_fonts::requests_for(doc);
+        let named_requests = desigma_fonts::requests_for(doc);
+        let mut requests = named_requests.clone();
         requests.extend(desigma_fonts::script_requests_for(doc));
         if requests.is_empty() {
             self.pending = None;
@@ -46,7 +47,11 @@ impl FontLoader {
             .filter(|family| {
                 // A script fallback is not needed when the system has a font that covers the
                 // script (e.g. Microsoft YaHei for Chinese), so offline users see no failure.
-                let alternatives = desigma_fonts::Script::of_family(family).map(|s| s.system_alternatives()).unwrap_or_default();
+                // An automatic fallback may use the bundled CJK face. An explicitly
+                // selected Noto family still resolves its own face and weight.
+                let explicitly_selected = named_requests.iter().any(|r| r.family.eq_ignore_ascii_case(family));
+                let alternatives =
+                    if explicitly_selected { &[][..] } else { desigma_fonts::Script::of_family(family).map(|s| s.system_alternatives()).unwrap_or_default() };
                 std::iter::once(family.as_str()).chain(alternatives.iter().copied()).any(installed_exactly)
             })
             .collect();

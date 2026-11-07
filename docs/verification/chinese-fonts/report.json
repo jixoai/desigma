@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-07",
+  "causes": [
+    {
+      "layer": "Fontsource selection",
+      "observed": "Noto Sans SC and JP resolved latin-400-normal.ttf;34,868/35,104bytes,218Unicode mappings, no 中/文/图/层"
+    },
+    {
+      "layer": "egui UI",
+      "observed": "WASM CJK fallback was gated on ZhCn locale; English menus with Chinese node names got no fallback"
+    }
+  ],
+  "solution": {
+    "fallback": "FDE2E UI CJK Regular,7946Unicode mappings, bundled once in WASM UI/canvas/worker",
+    "network": "SC/JP/KR use chinese-simplified/japanese/korean subsets",
+    "cache": "Known Fontsource Latin-only/numbered CJK entries rejected as misses; user files untouched"
+  },
+  "browser": {
+    "engine": "Ego Chromium / WebGPU",
+    "coldOrigin": "http://127.0.0.1:8083",
+    "externalFontsBlocked": true,
+    "fontCacheBefore": [],
+    "fontRequests": [],
+    "pngBytes": 46426,
+    "svgBytes": 33243,
+    "verified": [
+      "English UI Chinese names",
+      "Chinese UI translations",
+      "Inter document CJK fallback",
+      "worker PNG/SVG output"
+    ],
+    "cacheMigration": {
+      "oldBytes": 34868,
+      "newBytes": 2534728,
+      "sourceUrl": "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-sc@5.3.1/chinese-simplified-400-normal.ttf",
+      "networkRequests": 2
+    }
+  },
+  "build": {
+    "beforeGzipBytes": 9366210,
+    "afterGzipBytes": 11026597,
+    "budgetBytes": 12582912,
+    "buildId": "10e32da6dd0bcd9d"
+  },
+  "limitations": [
+    "Common Chinese fallback is regular weight and not full Unicode Han; choose a document font for uncommon characters and desired weight/style.",
+    "Full native upstream unit suite includes a removed packaging/macos/Info.plist.in; UI regression is isolated from that unsupported fixture."
+  ],
+  "tests": {
+    "fontLibrary": 27,
+    "uiFontCoverage": 1,
+    "scriptTests": 14,
+    "wasmClippy": "pass",
+    "optimizedBuild": "pass"
+  }
+}

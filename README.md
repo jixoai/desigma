@@ -14,7 +14,7 @@ Rust 编辑与渲染引擎   ──▶ WebAssembly + WebGPU（WebGL / CPU 兼容
 ## Fork 链
 
 - 基于开源设计编辑器改造；上游仓库、锚定提交与改造边界见 [FORK.md](FORK.md)。
-- 许可：**MIT OR Apache-2.0**；保留 [LICENSE-MIT](LICENSE-MIT)、[LICENSE-APACHE](LICENSE-APACHE) 及 [第三方声明](THIRD_PARTY_NOTICES.md)，新增贡献沿用相同许可。
+- 代码许可：**MIT OR Apache-2.0**；保留 [LICENSE-MIT](LICENSE-MIT)、[LICENSE-APACHE](LICENSE-APACHE) 及 [第三方声明](THIRD_PARTY_NOTICES.md)，新增代码贡献沿用相同许可。回归截图中的第三方图像按各自许可使用。
 - 源码仓：[jixoai/desigma](https://github.com/jixoai/desigma)。`browser-wasm` 是默认开发分支；`main` 仅镜像上游历史。每周同步生成草稿 PR，通过 WASM、浏览器和品牌检查后人工合并。见 [同步说明](docs/upstream-sync.md)。
 
 ## 开发

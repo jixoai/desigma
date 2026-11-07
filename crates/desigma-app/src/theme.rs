@@ -553,7 +553,7 @@ pub fn apply(ctx: &egui::Context) {
     ctx.set_global_style(style);
 }
 
-/// Installs the bundled Inter variable font as two instances: regular and strong.
+/// Installs Inter UI weights and the browser's offline Chinese fallback.
 pub fn install_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     let inter = desigma_fonts::bundled().iter().find(|a| a.family == UI_FONT_FAMILY && !a.italic).expect("bundled Inter");
@@ -575,8 +575,20 @@ pub fn install_fonts(ctx: &egui::Context) {
     let mut semibold_family = vec!["ui-semibold".to_string()];
     semibold_family.extend(fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default());
     fonts.families.insert(FontFamily::Name(FAMILY_SEMIBOLD.into()), semibold_family);
+    #[cfg(target_arch = "wasm32")]
+    add_browser_cjk(&mut fonts);
     ctx.set_fonts(fonts);
+    #[cfg(not(target_arch = "wasm32"))]
     install_cjk_fallback(ctx);
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn add_browser_cjk(fonts: &mut egui::FontDefinitions) {
+    fonts.font_data.insert("ui-cjk".into(), std::sync::Arc::new(egui::FontData::from_static(desigma_fonts::BROWSER_CJK.data)));
+    // File and layer names may be Chinese even when the menus are English.
+    for family in fonts.families.values_mut() {
+        family.push("ui-cjk".into());
+    }
 }
 
 /// System fonts with Chinese/Japanese (first found wins), then Korean, for UI labels such as
@@ -731,29 +743,27 @@ pub const BOARD_BAR_BTN: f32 = 28.0;
 pub const BOARD_SWATCH: f32 = 18.0;
 pub const BOARD_BAR_SEP: f32 = 8.0;
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn install_cjk_fallback(ctx: &egui::Context) {
-    // Load the UI fallback only for a CJK interface; document fonts have their own loader.
-    if crate::i18n::current() != crate::i18n::Lang::ZhCn {
-        return;
-    }
-    let ctx = ctx.clone();
-    wasm_bindgen_futures::spawn_local(async move {
-        let request = desigma_fonts::FontRequest::new("Noto Sans SC", 400, false);
-        let report = crate::web::fonts::load(std::collections::BTreeSet::from([request]), Default::default()).await;
-        if let Some(font) = report.loaded.into_iter().next() {
-            let families = [
-                FontFamily::Proportional,
-                FontFamily::Monospace,
-                FontFamily::Name(FAMILY_STRONG.into()),
-                FontFamily::Name(FAMILY_MEDIUM.into()),
-                FontFamily::Name(FAMILY_SEMIBOLD.into()),
-            ]
-            .into_iter()
-            .map(|family| egui::epaint::text::InsertFontFamily { family, priority: egui::epaint::text::FontPriority::Lowest })
-            .collect();
-            ctx.add_font(egui::epaint::text::FontInsert::new("ui-cjk", egui::FontData::from_owned(font.data), families));
-            ctx.request_repaint();
+#[cfg(test)]
+mod browser_font_tests {
+    use super::*;
+
+    #[test]
+    fn chinese_labels_work_in_every_ui_family_without_network_or_chinese_locale() {
+        let mut definitions = egui::FontDefinitions::default();
+        for name in [FAMILY_MEDIUM, FAMILY_SEMIBOLD, FAMILY_STRONG] {
+            definitions.families.insert(FontFamily::Name(name.into()), definitions.families[&FontFamily::Proportional].clone());
         }
-    });
+        add_browser_cjk(&mut definitions);
+        let mut fonts = egui::epaint::text::Fonts::new(Default::default(), definitions);
+        let mut view = fonts.with_pixels_per_point(1.0);
+        for family in [
+            FontFamily::Proportional,
+            FontFamily::Monospace,
+            FontFamily::Name(FAMILY_MEDIUM.into()),
+            FontFamily::Name(FAMILY_SEMIBOLD.into()),
+            FontFamily::Name(FAMILY_STRONG.into()),
+        ] {
+            assert!(view.has_glyphs(&FontId::new(12.0, family.clone()), "中文图层设计回忆简体中文"), "{family:?}");
+        }
+    }
 }

@@ -111,6 +111,9 @@ impl FontMeta {
     /// For script specific families (`noto-sans-arabic`, `noto-sans-hebrew`, ...) the subset
     /// named like the script: it holds the script's glyphs, while `latin` only has Latin ones.
     fn script_subset(&self) -> Option<&str> {
+        if let Some(script) = crate::Script::of_family(&self.family) {
+            return Some(script.subset());
+        }
         self.subsets.iter().map(String::as_str).find(|s| *s != "latin" && *s != "latin-ext" && self.id.ends_with(&format!("-{s}")))
     }
 
@@ -128,7 +131,12 @@ impl FontMeta {
         let weights: Vec<u16> = self.ttf.iter().filter(|(_, m)| m.contains_key(style)).map(|(w, _)| *w).collect();
         let w = nearest_weight(&weights, weight).ok_or_else(|| FontError::NoTtf(self.family.clone()))?;
         let subs = &self.ttf[&w][style];
-        let subset = if let Some(s) = self.script_subset().filter(|s| subs.contains_key(*s)) {
+        let subset = if let Some(s) = self.script_subset() {
+            // A named CJK family is not useful when the API only offers Latin or
+            // numbered fragments. Never silently cache those as the script font.
+            if !subs.contains_key(s) {
+                return Err(FontError::NoTtf(format!("{} / {s}", self.family)));
+            }
             s.to_string()
         } else if subs.contains_key("latin") {
             "latin".to_string()
@@ -222,5 +230,29 @@ mod tests {
     fn license_as_object_is_tolerated() {
         let json = r#"{"id":"x","license":{"type":"OFL-1.1","url":"u"},"variants":{}}"#;
         assert_eq!(FontMeta::parse(json).unwrap().license, "OFL-1.1");
+    }
+
+    #[test]
+    fn cjk_short_family_suffixes_select_script_glyphs_not_latin_or_numbered_slices() {
+        for (family, subset) in [("Noto Sans SC", "chinese-simplified"), ("Noto Sans JP", "japanese"), ("Noto Sans KR", "korean")] {
+            let variant = serde_json::json!({
+                "latin": {"url": {"ttf": "https://cdn.test/latin.ttf"}},
+                "4": {"url": {"ttf": "https://cdn.test/4.ttf"}},
+                subset: {"url": {"ttf": format!("https://cdn.test/{subset}.ttf")}}
+            });
+            let metadata = serde_json::json!({"id":font_id(family),"family":family,"license":"OFL-1.1",
+                "subsets":["latin",subset],"variants":{"400":{"normal":variant},"700":{"normal":variant}}});
+            let meta = FontMeta::parse(&metadata.to_string()).unwrap();
+            for weight in [400, 600, 700] {
+                let pick = meta.pick(weight, false).unwrap();
+                assert_eq!(pick.subset, subset);
+                assert_eq!(pick.url, format!("https://cdn.test/{subset}.ttf"));
+            }
+            let mut incomplete = metadata;
+            for weight in ["400", "700"] {
+                incomplete["variants"][weight]["normal"].as_object_mut().unwrap().remove(subset);
+            }
+            assert!(matches!(FontMeta::parse(&incomplete.to_string()).unwrap().pick(400, false), Err(FontError::NoTtf(_))));
+        }
     }
 }

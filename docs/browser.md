@@ -38,7 +38,9 @@ The platform layer keeps metadata and a synchronous working set for the existing
 
 Projects, folders, thumbnails, trash, named versions, published component libraries, settings, plugin bundles and downloaded fonts use this storage. Downloads and temporary imports do not persist. Browser storage is origin-scoped: a different hostname/port is a different workspace. Clearing site data removes the workspace; export `.desigma` files for portable backups. Storage capacity remains the browser's quota.
 
-After one successful online load, the service worker caches the static editor for offline use. New versions wait for existing tabs to close. No analytics or document upload is included. Fontsource and installed plugins' declared services need a connection on their first use; downloaded fonts and plugin bundles are cached locally.
+After one successful online load, the service worker caches the static editor for offline use. New versions wait for existing tabs to close. No analytics or document upload is included. Inter and a regular Chinese fallback (FDE2E UI CJK, 7,946 Unicode mappings) ship in WASM for the editor UI, canvas and export worker, including Chinese names in English menus. Other Fontsource fonts and installed plugins' declared services need a connection on their first use; downloaded fonts and plugin bundles are cached locally. This Chinese fallback covers the current UI and common characters, not all Unicode Han; uncommon characters need a document font with suitable coverage. Noto SC/JP/KR downloads select their script subsets, and old Fontsource Latin-only CJK cache entries are treated as misses automatically without clearing user files.
+
+If an older tab still shows Chinese squares after updating, save its work and reopen it so the new WASM/service worker can load. Clearing browser site data is not required. [Chinese font investigation and verification](verification/chinese-fonts/README.md) records the faulty font URLs, cache migration and cold-cache export checks.
 
 ## WebMCP
 

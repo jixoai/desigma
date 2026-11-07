@@ -1,0 +1,9 @@
+{
+  "source": "https://raw.githubusercontent.com/google/fonts/2894aab31764f10f29c421bdfd2340d3b382d384/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+  "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+  "license": "SIL OFL 1.1",
+  "coverage_source": "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-sc@5.3.1/chinese-simplified-400-normal.ttf",
+  "coverage_sha256": "f1caaade72a6d83bf7f38ece3e837d106e333a5915d8460f4ba3d26a8573f2f1",
+  "family": "FDE2E UI CJK",
+  "derivative_modified_timestamp": 3876859937
+}

@@ -129,6 +129,19 @@ impl FontCache {
 
     /// Cached bytes only (no bundled lookup, no network).
     pub fn cached(&self, req: &FontRequest) -> Option<Vec<u8>> {
+        if let Some(script) = crate::Script::of_family(&req.family) {
+            if let Some(side) = self.sidecar(req) {
+                // Older builds cached Fontsource's Latin subset under Noto SC/JP/KR.
+                // Treat only these known wrong downloads as misses; user-provided
+                // full fonts without a Fontsource sidecar remain usable offline.
+                let source = side.source_url.split('?').next().unwrap_or(&side.source_url);
+                let fontsource =
+                    source.starts_with("https://cdn.jsdelivr.net/fontsource/fonts/") || source.starts_with("https://cdn.jsdelivr.net/npm/@fontsource/");
+                if fontsource && !source.rsplit('/').next().unwrap_or_default().starts_with(&format!("{}-", script.subset())) {
+                    return None;
+                }
+            }
+        }
         desigma_platform::fs::read(self.font_path(req)).ok().filter(|b| !b.is_empty())
     }
 
@@ -305,5 +318,37 @@ mod tests {
     fn default_dir_is_under_desigma_fonts() {
         let d = FontCache::default_dir();
         assert!(d.ends_with(Path::new("desigma").join("fonts")));
+    }
+
+    #[test]
+    fn obsolete_fontsource_cjk_cache_is_replaced_without_clearing_other_fonts() {
+        let dir = tempdir("cjk-migration");
+        let request = FontRequest::new("Noto Sans SC", 400, false);
+        let correct_url = "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-sc@5.3.1/chinese-simplified-400-normal.ttf";
+        let metadata = serde_json::json!({"id":"noto-sans-sc","family":"Noto Sans SC","subsets":["latin","chinese-simplified"],"license":"OFL-1.1",
+            "variants":{"400":{"normal":{"latin":{"url":{"ttf":"https://cdn.test/latin.ttf"}},"chinese-simplified":{"url":{"ttf":correct_url}}}}}});
+        let hits = Arc::new(Mutex::new(Vec::new()));
+        let cache = mock_cache(&dir, &metadata.to_string(), hits.clone());
+        let side = Sidecar {
+            family: request.family.clone(),
+            license: "OFL-1.1".into(),
+            requested_weight: 400,
+            weight: 400,
+            italic: false,
+            source_url: "https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-sc@5.3.1/latin-400-normal.ttf".into(),
+        };
+        cache.store(&request, &fake_ttf(), &side).unwrap();
+        assert!(cache.cached(&request).is_none(), "Latin bytes cannot satisfy Chinese");
+        let unrelated = dir.join("custom-user-font.ttf");
+        std::fs::write(&unrelated, fake_ttf()).unwrap();
+        cache.resolve(&request).unwrap();
+        assert_eq!(hits.lock().unwrap().as_slice(), &[metadata_url("Noto Sans SC"), correct_url.to_string()]);
+        assert_eq!(cache.sidecar(&request).unwrap().source_url, correct_url);
+        assert!(cache.cached(&request).is_some());
+        assert!(FontCache::with_dir(&dir).offline().resolve(&request).is_ok());
+        assert!(unrelated.exists());
+        std::fs::remove_file(cache.sidecar_path(&request)).unwrap();
+        assert!(cache.cached(&request).is_some(), "a locally supplied font has no Fontsource sidecar");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

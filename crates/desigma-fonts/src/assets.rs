@@ -1,7 +1,7 @@
 use crate::FontRequest;
 
 /// A font embedded in the binary.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct FontAsset {
     pub family: &'static str,
     pub italic: bool,
@@ -12,7 +12,18 @@ pub struct FontAsset {
     pub data: &'static [u8],
 }
 
-static BUNDLED: [FontAsset; 2] = [
+/// Regular Chinese fallback shared by the WASM UI, canvas and export worker.
+/// Kept separate from Inter so Latin metrics and document font choices stay intact.
+pub static BROWSER_CJK: FontAsset = FontAsset {
+    family: "FDE2E UI CJK",
+    italic: false,
+    min_weight: 400,
+    max_weight: 400,
+    license: "OFL-1.1",
+    data: include_bytes!("../assets/cjk/FDE2E-UI-CJK-Regular.ttf"),
+};
+
+static BUNDLED: &[FontAsset] = &[
     FontAsset {
         family: "Inter",
         italic: false,
@@ -29,11 +40,13 @@ static BUNDLED: [FontAsset; 2] = [
         license: "OFL-1.1",
         data: include_bytes!("../assets/inter/Inter-Italic[opsz,wght].ttf"),
     },
+    #[cfg(target_arch = "wasm32")]
+    BROWSER_CJK,
 ];
 
 /// Fonts embedded in the binary; always available, no I/O.
 pub fn bundled() -> &'static [FontAsset] {
-    &BUNDLED
+    BUNDLED
 }
 
 /// The bundled asset serving `req`, if any (family match is case-insensitive).

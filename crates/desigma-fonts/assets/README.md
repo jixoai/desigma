@@ -13,3 +13,7 @@
 - License: SIL Open Font License 1.1 (`inter/OFL.txt`). Copyright 2020 The Inter Project Authors.
 
 Embedded into the binary with `include_bytes!` in `src/assets.rs`.
+
+## Browser Chinese fallback (`cjk/`)
+
+The WASM bundle also includes FDE2E UI CJK Regular, an OFL subset derived from Noto Sans SC. It serves Chinese UI labels in every menu language and gives the canvas/export worker an offline fallback. Coverage, pinned source, reproduction and license are recorded in [cjk/README.md](cjk/README.md). Desktop upstream builds keep their existing system-font path.
