@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 mod authoring;
+mod diagnostics;
 mod guide;
 mod prototype;
 
@@ -35,8 +36,10 @@ pub fn catalog() -> Value {
         tool("get_capabilities", "Describe commands, actions, formats and authoring helpers. Read get_editing_guide before constructing native nodes or prototype reactions.", json!({}), &[], true),
         tool("get_editing_guide", "Return executable native examples and contracts for insertion, components, text layout and prototype verification. Examples use placeholder IDs: allocate fresh IDs and use real parent IDs. Prefer create_instance over manually cloning components; render_preview avoids download waits; test_prototype verifies real hit testing.", json!({"topic":{"type":"string","enum":["all","commands","components","prototype","text"]}}), &[], true),
         tool("create_instance", "Create a linked component instance with the complete mirrored subtree, property overrides and normal resize/layout behavior in one Undo step. Appends above existing siblings. Returns actual IDs and names; do not infer IDs from child positions.", authoring::instance_schema(), &["component_id","parent_id"], false),
-        tool("inspect_components", "Check reusable-component integrity: list masters and instances, report instances whose master or mirrored source is missing. An Instance node count alone does not prove the design still has reusable components, especially after rebuilding a component sheet.", json!({}), &[], true),
-        tool("inspect_prototype", "Read flow starts and named interaction nodes, their destinations, bounds, and click hit-test warnings. A reaction record alone is not proof of a working flow. Use test_prototype with expected frames and text to verify outcomes.", json!({"page_id":{"type":"integer","minimum":1}}), &[], true),
+        tool("inspect_components", "Check reusable-component integrity. Returns ok, warning_count, warnings, unresolved_master_count, masters and instances (there is no issues field). ok describes structural references only; also verify propagation and appearance.", json!({}), &[], true),
+        tool("inspect_prototype", "Inspect flows, interactions and real sampled hits. Returns ok, warning_count, warnings and target_samples. Supply probe_node_ids for all visible control labels/icons, including nodes without reactions. Nested controls are distinguished from blocked clicks. This is diagnostics, not complete flow verification.", prototype::inspect_schema(), &[], true),
+        tool("inspect_fonts", "Read the renderer's actual available fonts, pending loading and requested-to-resolved primary families. Use before font experiments; document.fonts is not the WASM font database. Missing glyphs can still use a script fallback. No document changes or downloads.", json!({"families":{"type":"array","maxItems":100,"items":{"type":"string","minLength":1,"maxLength":256}}}), &[], true),
+        tool("inspect_text", "Inspect a frame's native text for glyph bounds outside boxes, clipping, possible covering by later opaque rectangles, and solid-color contrast. Optional required_texts checks business copy presence. Returns ok, warnings, missing_texts and checked_text_count; bounded to 5000 nodes/500 text nodes. Geometry diagnostics complement real previews; they do not certify semantics or appearance.", diagnostics::text_schema(), &["node_id"], true),
         tool("test_prototype", "Run bounded pointer clicks and waits through the real prototype player on a private copy. Never changes the live design or Undo and never opens URLs. Click node centers or frame-local coordinates; returns actual hit/reaction nodes, frame text, variables, errors and assertion results. This tests player behavior; still inspect visual previews.", prototype::test_schema(), &["start_node_id","steps"], true),
         tool("render_preview", "Render one layer as PNG in the browser worker and return mime_type, width, height and data_url. Does not write a file or trigger a download; use for visual inspection without waiting for download events. Inspect the returned image. Explicit export_asset is still available for deliverable downloads.", json!({"node_id":{"type":"integer","minimum":1},"scale":{"type":"number","minimum":0.25,"maximum":2,"default":1}}), &["node_id"], true),
         tool("get_document_json", "Read the complete native document including nodes, variables, components, prototypes, comments, decks, motion and embedded assets. Prefer list_nodes/get_node for large documents.", json!({}), &[], true),
@@ -47,9 +50,9 @@ pub fn catalog() -> Value {
         tool("allocate_node_ids", "Reserve IDs for native Insert/InsertPage commands; never invent IDs or reuse existing ones.", json!({"count":{"type":"integer","minimum":1,"maximum":1000}}), &["count"], false),
         tool("export_document", "Return the native .desigma document or variables JSON as text, ready to save or download.", json!({"format":{"type":"string","enum":["desigma","variables"]}}), &["format"], true),
         tool("import_variables", "Merge Figma variables JSON using the editor's variable transaction and reflow bound nodes.", json!({"json":{"type":"string","maxLength":8388608}}), &["json"], false),
-        tool("export_asset", "Export a node as PNG, JPEG or SVG, or deck slides as PDF, entirely inside the browser. Writes to browser storage; /downloads starts a browser download.", json!({"node_id":{"type":"integer","minimum":1},"format":{"type":"string","enum":["png","jpg","svg","pdf"]},"path":{"type":"string"},"scale":{"type":"number","minimum":0.25,"maximum":4},"all_slides":{"type":"boolean"}}), &["format","path"], false),
+        tool("export_asset", "Export a node as PNG, JPEG or SVG, or deck slides as PDF, entirely inside the browser. Creates missing destination folders in browser storage; /downloads starts a browser download. Use render_preview for inspection without downloading.", json!({"node_id":{"type":"integer","minimum":1},"format":{"type":"string","enum":["png","jpg","svg","pdf"]},"path":{"type":"string"},"scale":{"type":"number","minimum":0.25,"maximum":4},"all_slides":{"type":"boolean"}}), &["format","path"], false),
         tool("create_project", "Create a project in this browser's persistent library.", json!({"name":{"type":"string","minLength":1,"maxLength":1024}}), &["name"], false),
-        tool("save_to_project", "Save the live document in a browser library project and enable autosave.", json!({"project_id":{"type":"string"},"name":{"type":"string","minLength":1,"maxLength":1024}}), &["project_id","name"], false),
+        tool("save_to_project", "Create a NEW library file and enable autosave. Returns file_id, project_id, name and path. For subsequent saves use save_file with the returned path and overwrite=true; calling save_to_project again intentionally creates another copy.", json!({"project_id":{"type":"string"},"name":{"type":"string","minLength":1,"maxLength":1024}}), &["project_id","name"], false),
         tool("list_projects", "List projects and folders from the persistent browser library.", json!({}), &[], true),
         tool("share_document", "Start a browser collaboration session. Same-origin tabs join directly; cross-device peers exchange WebRTC offers and answers. Edits and presence remain in the browser.", json!({"password":{"type":"string","maxLength":256},"approval":{"type":"boolean"},"role":{"type":"string","enum":["editor","viewer"]}}), &[], false),
         tool("join_document", "Join a browser collaboration ticket. The host document replaces the current document after acceptance; explicitly set discard_changes when leaving unsaved work.", json!({"link":{"type":"string"},"name":{"type":"string","maxLength":80},"password":{"type":"string","maxLength":256},"discard_changes":{"type":"boolean"}}), &["link","name"], false),
@@ -154,6 +157,8 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
         "desigma_get_editing_guide" => guide::guide(args["topic"].as_str().unwrap_or("all")),
         "desigma_create_instance" => authoring::create_instance(app, ctx, args),
         "desigma_inspect_components" => Ok(authoring::inspect_components(&app.doc)),
+        "desigma_inspect_fonts" => diagnostics::fonts(app, args),
+        "desigma_inspect_text" => diagnostics::inspect_text(app, args),
         "desigma_inspect_prototype" => prototype::inspect(app, args),
         "desigma_test_prototype" => prototype::test(app, args),
         "desigma_render_preview" => Err("This operation is handled by the browser worker adapter".into()),
@@ -179,7 +184,7 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
             "example":{"commands":[{"Update":{"node":"full node object returned by desigma_get_node; edit its properties and submit here"}}]},
             "formats":{"import":["desigma","fig","pen","svg","Figma REST JSON","PNG","JPEG","WebP"],"export":["desigma","png","jpg","svg","pdf","gif","webm","png-zip","css","tailwind","react","swiftui","compose"]},
             "actions":actions().iter().map(|(n,_)|n).collect::<Vec<_>>(),"max_layers":100000,"storage":"IndexedDB","network_transport":"browser",
-            "authoring":{"guide":"desigma_get_editing_guide","instances":"desigma_create_instance","component_inspection":"desigma_inspect_components","preview":"desigma_render_preview","prototype_inspection":"desigma_inspect_prototype","prototype_test":"desigma_test_prototype"}}),
+            "authoring":{"guide":"desigma_get_editing_guide","instances":"desigma_create_instance","component_inspection":"desigma_inspect_components","preview":"desigma_render_preview","fonts":"desigma_inspect_fonts","text_inspection":"desigma_inspect_text","prototype_inspection":"desigma_inspect_prototype","prototype_test":"desigma_test_prototype"}}),
         ),
         "desigma_get_document_json" => serde_json::to_value(&app.doc).map_err(|e| e.to_string()),
         "desigma_apply_commands" => {
@@ -188,6 +193,14 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
             if a.commands.is_empty() || a.commands.len() > 1000 {
                 return Err("Provide 1..1000 commands".into());
             }
+            let inserted = a
+                .commands
+                .iter()
+                .filter_map(|c| match c {
+                    Command::Insert { nodes, .. } | Command::InsertPage { nodes, .. } => nodes.first().map(|n| n.id),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
             let cmd = Command::Batch(a.commands);
             let mut staged = app.doc.clone_without_images();
             stage_commands(&mut staged, &cmd)?;
@@ -224,7 +237,8 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
             AppHost(app).exec(cmd)?;
             app.sanitize();
             app.fonts.load_for(&app.doc);
-            Ok(json!({"changed":true,"undo_steps":1,"node_count":app.doc.nodes.len()}))
+            Ok(json!({"changed":true,"undo_steps":1,"node_count":app.doc.nodes.len(),
+                "inserted_roots":inserted.iter().filter_map(|id|app.doc.get(*id)).map(|n|json!({"node_id":n.id,"name":n.name,"parent_id":n.parent})).collect::<Vec<_>>()}))
         }
         "desigma_execute_action" => {
             let action = text(&args, "action")?;
@@ -305,7 +319,10 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
                     return Err(toast.text.clone());
                 }
             }
-            Ok(json!({"saved":true}))
+            let file = app.lib_file.as_ref().ok_or("Library save did not create a file")?;
+            let path = library(app)?.root().join("projects").join(&file.project_id).join("files").join(format!("{}.desigma", file.id));
+            Ok(json!({"saved":true,"file_id":file.id,"project_id":file.project_id,"name":file.name,"path":path,
+                "next_save":{"tool":"desigma_save_file","arguments":{"path":path,"overwrite":true}}}))
         }
         "desigma_list_files" => {
             let lib = library(app)?;
@@ -390,7 +407,14 @@ pub fn call(app: &mut App, ctx: &egui::Context, name: &str, mut args: Value) -> 
             }
             app.bridge_call(name, args)
         }
-        _ => app.bridge_call(name, args),
+        _ => {
+            let changes_text = name == "desigma_set_text_style" || matches!(name, "desigma_create_node" | "desigma_update_node") && args.get("text").is_some();
+            let result = app.bridge_call(name, args)?;
+            if changes_text {
+                app.fonts.load_for(&app.doc);
+            }
+            Ok(result)
+        }
     }
 }
 
@@ -861,13 +885,45 @@ mod tests {
         let intact = call(&mut app, &ctx, "desigma_inspect_components", json!({})).unwrap();
         assert_eq!(intact["master_count"], 1);
         assert_eq!(intact["unresolved_master_count"], 0);
+        assert_eq!(intact["ok"], true);
+        assert_eq!(intact["warning_count"], 0);
         call(&mut app, &ctx, "desigma_delete_node", json!({"node_id":100})).unwrap();
         let missing = call(&mut app, &ctx, "desigma_inspect_components", json!({})).unwrap();
         assert_eq!(missing["master_count"], 0);
         assert_eq!(missing["instance_count"], 1);
         assert_eq!(missing["unresolved_master_count"], 1);
+        assert_eq!(missing["ok"], false);
+        assert!(missing["warning_count"].as_u64().unwrap() > 0);
         call(&mut app, &ctx, "desigma_undo", json!({})).unwrap();
         assert_eq!(call(&mut app, &ctx, "desigma_inspect_components", json!({})).unwrap()["unresolved_master_count"], 0);
+    }
+
+    #[test]
+    fn authoring_returns_real_roots_and_rejects_invalid_instance_parents_atomically() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let guide = guide::guide("components").unwrap();
+        let result = call(&mut app, &ctx, "desigma_apply_commands", guide["master_example"].clone()).unwrap();
+        assert_eq!(result["inserted_roots"], json!([{"node_id":100,"name":"Primary button","parent_id":1}]));
+        let before = app.doc.to_json().unwrap();
+        let undo = app.hist.undo_len();
+        for (parent, message) in [(999999, "does not exist"), (101, "not a container"), (100, "inside the component")] {
+            let error = call(&mut app, &ctx, "desigma_create_instance", json!({"component_id":100,"parent_id":parent})).unwrap_err();
+            assert!(error.contains(message), "{error}");
+            assert_eq!(before, app.doc.to_json().unwrap());
+            assert_eq!(undo, app.hist.undo_len());
+        }
+    }
+
+    #[test]
+    fn direct_typography_tools_start_font_resolution() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let page = app.page;
+        let node = call(&mut app, &ctx, "desigma_create_node", json!({"parent_id":page,"kind":"text","text":"中文排版"})).unwrap();
+        app.fonts = Default::default();
+        call(&mut app, &ctx, "desigma_set_text_style", json!({"node_id":node["node"]["id"],"font_family":"Inter","font_size":32})).unwrap();
+        assert!(app.fonts.is_loading(), "Changing a font through WebMCP must initiate the same loader as the typography panel");
     }
 
     fn prototype_fixture() -> App {
@@ -945,5 +1001,29 @@ mod tests {
         let r = call(&mut app, &ctx, "desigma_test_prototype", json!({"start_node_id":10,"steps":[{"node_id":11}]})).unwrap();
         assert_eq!(r["passed"], false);
         assert_eq!(r["steps"][0]["blocked_external_effects"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn prototype_inspection_accepts_nested_controls_and_probes_unwired_labels() {
+        use desigma_doc::*;
+        let mut app = prototype_fixture();
+        let ctx = egui::Context::default();
+        let reactions = app.doc.get(NodeId(11)).unwrap().prototype.reactions.clone();
+        app.doc.get_mut(NodeId(12)).unwrap().prototype.reactions = reactions;
+        let label = Node::text(NodeId(13), Rect::new(76.0, 50.0, 120.0, 30.0), "Return to edit", TextStyle::default());
+        app.doc.insert(NodeId(20), label).unwrap();
+        let report = call(&mut app, &ctx, "desigma_inspect_prototype", json!({"probe_node_ids":[12,13]})).unwrap();
+        let card = report["interactions"].as_array().unwrap().iter().find(|i| i["node"]["node_id"] == 11).unwrap();
+        assert!(card["click_samples"].as_array().unwrap().iter().any(|s| s["ownership"] == "equivalent_child" && s["matches"] == true));
+        assert!(!report["warnings"].as_array().unwrap().iter().any(|w| w["code"] == "click_sample_misses" && w["node_id"] == 11));
+        assert_eq!(report["target_samples"][0]["ok"], true);
+        assert_eq!(report["target_samples"][1]["ok"], false);
+        assert!(report["warnings"].as_array().unwrap().iter().any(|w| w["code"] == "probe_target_not_clickable" && w["node_id"] == 13));
+        // An unrelated sibling covering the same location is still a miss,
+        // even when its destination happens to match the underlying card.
+        app.doc.reparent(NodeId(12), NodeId(10), 1).unwrap();
+        app.doc.get_mut(NodeId(12)).unwrap().transform = Affine::translate(54.0, 110.0);
+        let report = call(&mut app, &ctx, "desigma_inspect_prototype", json!({})).unwrap();
+        assert!(report["warnings"].as_array().unwrap().iter().any(|w| w["code"] == "click_sample_misses" && w["node_id"] == 11));
     }
 }

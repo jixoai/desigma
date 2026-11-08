@@ -362,9 +362,9 @@ pub fn worker_import(bytes: &[u8], extension: &str, name: &str) -> Result<String
 }
 
 #[wasm_bindgen]
-pub fn worker_register_font(bytes: Vec<u8>) {
+pub fn worker_register_font(bytes: Vec<u8>, family: Option<String>) {
     desigma_export::register_font(bytes.clone());
-    desigma_render::register_font(bytes);
+    desigma_render::register_font_family(bytes, family);
 }
 
 #[wasm_bindgen]

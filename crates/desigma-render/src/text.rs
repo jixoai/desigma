@@ -11,6 +11,7 @@ use desigma_doc::{TextAutoResize, TextProps, Vec2};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tiny_skia as sk;
 
@@ -33,7 +34,13 @@ thread_local! {
 /// Font blobs registered at runtime, in registration order. Every thread's
 /// font system replays this list, so tile workers see the same fonts as the
 /// thread that called [`register_font`].
-static EXTRA_FONTS: Mutex<Vec<Arc<Vec<u8>>>> = Mutex::new(Vec::new());
+#[derive(Clone)]
+struct ExtraFont {
+    data: Arc<Vec<u8>>,
+    family: Option<String>,
+}
+static EXTRA_FONTS: Mutex<Vec<ExtraFont>> = Mutex::new(Vec::new());
+static FONT_GENERATION: AtomicUsize = AtomicUsize::new(0);
 
 /// The system + bundled font database, built once and cloned per thread (so
 /// scanning system fonts does not repeat for every worker).
@@ -42,7 +49,13 @@ static BASE_DB: OnceLock<(fontdb::Database, HashSet<fontdb::ID>)> = OnceLock::ne
 /// Number of fonts registered through [`register_font`]; changes whenever the
 /// set of available fonts changes (tile caches use it to invalidate).
 pub fn font_generation() -> usize {
-    EXTRA_FONTS.lock().map(|v| v.len()).unwrap_or(0)
+    FONT_GENERATION.load(Ordering::Acquire)
+}
+
+fn sync_registered_fonts() {
+    if REPLAYED.with(|r| r.get()) != font_generation() {
+        with_fonts(|_| ());
+    }
 }
 
 /// Outlines of laid out text, one path per style (index 0 = base style,
@@ -100,18 +113,34 @@ fn with_fonts<R>(f: impl FnOnce(&mut Fonts) -> R) -> R {
         }
         let fonts = slot.as_mut().unwrap();
         // Load fonts registered (possibly on another thread) since last use.
-        let pending: Vec<Arc<Vec<u8>>> = {
+        let pending: Vec<ExtraFont> = {
             let all = EXTRA_FONTS.lock().unwrap_or_else(|e| e.into_inner());
             let done = REPLAYED.with(|r| r.get());
             all[done.min(all.len())..].to_vec()
         };
         if !pending.is_empty() {
-            for blob in &pending {
-                fonts.fs.db_mut().load_font_source(fontdb::Source::Binary(blob.clone()));
+            for font in &pending {
+                let db = fonts.fs.db_mut();
+                let ids = db.load_font_source(fontdb::Source::Binary(font.data.clone()));
+                // Download metadata carries the public family name. Some static
+                // Fontsource CJK faces retain a legacy name such as "... Thin"
+                // even at weight 400/700. Alias the database entry, not font bytes.
+                if let Some(family) = &font.family {
+                    for id in ids {
+                        let Some(mut face) = db.face(id).cloned() else { continue };
+                        if !face.families.iter().any(|(name, _)| name.eq_ignore_ascii_case(family)) {
+                            let Some((_, language)) = face.families.first().cloned() else { continue };
+                            face.families.insert(0, (family.clone(), language));
+                            db.remove_face(id);
+                            db.push_face_info(face);
+                        }
+                    }
+                }
             }
             fonts.families = family_names(&fonts.fs);
             REPLAYED.with(|r| r.set(r.get() + pending.len()));
             LAYOUTS.with(|l| l.borrow_mut().clear());
+            GEOMS.with(|g| g.borrow_mut().clear());
         }
         f(fonts)
     })
@@ -121,7 +150,18 @@ fn with_fonts<R>(f: impl FnOnce(&mut Fonts) -> R) -> R {
 /// shared font system. Every thread (including tile-render workers) loads it
 /// the next time it lays out text. Cached layouts are discarded.
 pub fn register_font(data: Vec<u8>) {
-    EXTRA_FONTS.lock().unwrap_or_else(|e| e.into_inner()).push(Arc::new(data));
+    register_font_family(data, None);
+}
+
+/// Register a downloaded face under its verified catalog family. The original
+/// family remains an alias; file bytes, names and license records are untouched.
+pub fn register_font_family(data: Vec<u8>, family: Option<String>) {
+    let family = family.map(|f| f.trim().to_string()).filter(|f| !f.is_empty());
+    {
+        let mut fonts = EXTRA_FONTS.lock().unwrap_or_else(|e| e.into_inner());
+        fonts.push(ExtraFont { data: Arc::new(data), family });
+        FONT_GENERATION.store(fonts.len(), Ordering::Release);
+    }
     with_fonts(|_| ());
 }
 
@@ -339,6 +379,9 @@ fn style_hash(props: &TextProps, size: Vec2) -> u64 {
 
 /// Lays out `props` inside a box of `size`; cached per content/style/size.
 pub fn layout(props: &TextProps, size: Vec2) -> Rc<TextLayout> {
+    // Replay new registrations before looking in the cache; worker threads may
+    // otherwise keep a fallback layout after the requested face becomes ready.
+    sync_registered_fonts();
     let key = style_hash(props, size);
     if let Some(hit) = LAYOUTS.with(|l| l.borrow().get(&key).cloned()) {
         return hit;
@@ -684,6 +727,7 @@ thread_local! {
 /// Lines and glyph positions of `props` laid out in a box of `size`. Positions
 /// match the glyph outlines drawn by the renderer exactly.
 pub fn text_geometry(props: &TextProps, size: Vec2) -> Rc<TextGeometry> {
+    sync_registered_fonts();
     let key = style_hash(props, size);
     if let Some(hit) = GEOMS.with(|g| g.borrow().get(&key).cloned()) {
         return hit;

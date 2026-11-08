@@ -2,6 +2,8 @@ import init, { start } from './pkg/desigma_app.js';
 import { BrowserFileSystem } from './storage.js';
 import { registerTools } from './webmcp.js';
 import { renderPreview } from './preview.js';
+import { exportPath, writeExport } from './export-storage.js';
+import { collectWorkerFonts } from './font-assets.js';
 import { createTransport } from './collaboration.js';
 import { ComputeWorker } from './worker-client.js';
 import { createPluginHost } from './plugins.js';
@@ -95,7 +97,7 @@ async function hydrateLibraryFile(id) {
   if (path) await fs.hydrate(path);
 }
 const exportJobs = new Map(); let exportSerial = 0;
-function workerFonts() { return [...fs.entries].filter(([path]) => path.endsWith('.ttf') || path.endsWith('.otf')).map(([path,entry]) => ({ key: path + ':' + entry.modified, bytes:entry.bytes })); }
+function workerFonts() { return collectWorkerFonts(fs); }
 
 globalThis.desigmaBrowser = {
   thumbnail: document => compute.run('thumbnail', { document, fonts: workerFonts() }),
@@ -125,14 +127,14 @@ globalThis.desigmaBrowser = {
     const args=JSON.parse(argumentsJson);
     notice('Exporting in the background…');
     compute.run('export',{document,name,args,fonts:workerFonts()}).then(async bytes=>{
-      fs.write(args.path,bytes);await fs.flush();notice(`Exported ${args.path.split('/').pop()}`);
+      await writeExport(fs,args.path,bytes);notice(`Exported ${args.path.split('/').pop()}`);
     }).catch(notice);
   },
   beginExport(document, argumentsJson) {
     const id = ++exportSerial, controller = new AbortController(), args = JSON.parse(argumentsJson);
     const job = { controller, progress: [0,1] };
     job.promise = compute.run('export', { document, name: 'ui_animation', args, fonts: workerFonts() }, { signal: controller.signal, onProgress: progress => { job.progress = progress; handle?.repaint(); } })
-      .then(async bytes => { fs.write(args.path, bytes); await fs.flush(); return bytes.length; });
+      .then(async bytes => { await writeExport(fs, args.path, bytes, controller.signal); return bytes.length; });
     // Rust attaches the actual result handler after this synchronous call returns.
     job.promise.catch(() => {}); exportJobs.set(id, job); return id;
   },
@@ -218,16 +220,12 @@ async function boot() {
       result = await renderPreview({ args, compute, snapshot: () => snapshot(options), fonts: workerFonts(), signal: options.signal });
     } else if (['desigma_export_image', 'desigma_export_animation', 'desigma_export_asset'].includes(name)) {
       if (!JSON.parse(handle.stats()).agents) throw new Error('Agent access is disabled');
-      const path = fs.normalize(args.path);
+      const { path } = exportPath(fs, args.path);
       const format = name === 'desigma_export_image' ? 'png' : args.format;
       const extension = ['png-zip','png-frames','zip'].includes(format) || (name === 'desigma_export_animation' && format === 'png') ? 'zip' : format;
       if (!path.toLowerCase().endsWith('.' + extension)) throw new Error(`Export path must end in .${extension}`);
-      if (!args.path.startsWith('/')) throw new Error('Use an absolute browser storage path');
       const bytes = await compute.run('export', { document: await snapshot(options), name, args, fonts: workerFonts() }, options);
-      options.signal?.throwIfAborted();
-      fs.write(path, bytes);
-      await fs.flush();
-      result = { path, bytes: bytes.byteLength, exported: true };
+      result = await writeExport(fs, path, bytes, options.signal);
     } else {
       result = JSON.parse(handle.call(name, JSON.stringify(args)));
       if (name === 'desigma_get_capabilities') result.session = { id: session.id, recovery_path: session.path };

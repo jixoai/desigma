@@ -75,3 +75,28 @@ fn italic_uses_the_italic_face() {
 fn rendering_is_deterministic() {
     assert_eq!(render_text("Inter", 600, false).data(), render_text("Inter", 600, false).data());
 }
+
+#[test]
+fn downloaded_family_alias_replaces_cached_fallback_on_other_threads() {
+    let family = "Downloaded Family Regression";
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let (loaded_tx, loaded_rx) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let props =
+            TextProps { content: SAMPLE.into(), style: TextStyle { font_family: family.into(), font_size: 32.0, ..Default::default() }, ..Default::default() };
+        let geometry = desigma_render::text_geometry(&props, Vec2::new(400.0, 48.0));
+        let before = render_text(family, 400, false);
+        ready_tx.send(()).unwrap();
+        loaded_rx.recv().unwrap();
+        let after_geometry = desigma_render::text_geometry(&props, Vec2::new(400.0, 48.0));
+        assert!(!std::rc::Rc::ptr_eq(&geometry, &after_geometry), "Font change must invalidate cached caret geometry");
+        let after = render_text(family, 400, false);
+        assert_ne!(before.data(), after.data(), "Cached fallback outlines must be replaced by the downloaded face");
+        assert_eq!(resolve_font(family, 400, false).unwrap().family, family);
+    });
+    ready_rx.recv().unwrap();
+    let italic = desigma_fonts::bundled().iter().find(|f| f.family == "Inter" && f.italic).unwrap();
+    desigma_render::register_font_family(italic.data.to_vec(), Some(family.into()));
+    loaded_tx.send(()).unwrap();
+    worker.join().unwrap();
+}

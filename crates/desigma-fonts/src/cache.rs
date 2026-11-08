@@ -351,4 +351,25 @@ mod tests {
         assert!(cache.cached(&request).is_some(), "a locally supplied font has no Fontsource sidecar");
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn serif_chinese_cache_rejects_legacy_latin_subset() {
+        let dir = tempdir("serif-cjk-migration");
+        let cache = FontCache::with_dir(&dir).offline();
+        let request = FontRequest::new("Noto Serif SC", 600, false);
+        let mut side = Sidecar {
+            family: request.family.clone(),
+            license: "OFL-1.1".into(),
+            requested_weight: 600,
+            weight: 600,
+            italic: false,
+            source_url: "https://cdn.jsdelivr.net/fontsource/fonts/noto-serif-sc@5.3.1/latin-600-normal.ttf".into(),
+        };
+        cache.store(&request, &fake_ttf(), &side).unwrap();
+        assert!(cache.cached(&request).is_none());
+        side.source_url = side.source_url.replace("/latin-", "/chinese-simplified-");
+        cache.store(&request, &fake_ttf(), &side).unwrap();
+        assert!(cache.cached(&request).is_some());
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }

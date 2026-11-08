@@ -10,7 +10,7 @@ self.onmessage = async ({ data }) => {
     ready ??= init();
     await ready;
     if (operation === 'export' || operation === 'thumbnail') {
-      for (const font of payload.fonts || []) { if (!fonts.has(font.key)) { worker_register_font(font.bytes); fonts.add(font.key); } }
+      for (const font of payload.fonts || []) { if (!fonts.has(font.key)) { worker_register_font(font.bytes, font.family); fonts.add(font.key); } }
       const document = payload.document instanceof Blob ? await payload.document.text() : payload.document;
       const bytes = operation === 'thumbnail' ? worker_thumbnail(document) : worker_export(document, payload.name, JSON.stringify(payload.args));
       self.postMessage({ id, result: bytes }, [bytes.buffer]);

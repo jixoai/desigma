@@ -64,7 +64,12 @@ impl Script {
 
     /// The script whose Noto fallback `family` is.
     pub fn of_family(family: &str) -> Option<Script> {
-        Script::ALL.into_iter().find(|s| s.family().eq_ignore_ascii_case(family))
+        Script::ALL.into_iter().find(|s| s.family().eq_ignore_ascii_case(family)).or_else(|| match family.to_ascii_lowercase().as_str() {
+            "noto serif sc" => Some(Script::Han),
+            "noto serif jp" => Some(Script::Kana),
+            "noto serif kr" => Some(Script::Hangul),
+            _ => None,
+        })
     }
 
     /// Fontsource subset that holds the script's glyphs.
@@ -162,6 +167,9 @@ mod tests {
     #[test]
     fn cjk_scripts_know_their_system_alternatives() {
         assert_eq!(Script::of_family("noto sans sc"), Some(Script::Han));
+        assert_eq!(Script::of_family("Noto Serif SC"), Some(Script::Han));
+        assert_eq!(Script::of_family("Noto Serif JP"), Some(Script::Kana));
+        assert_eq!(Script::of_family("Noto Serif KR"), Some(Script::Hangul));
         assert!(Script::Han.system_alternatives().contains(&"Microsoft YaHei"));
         assert!(Script::Hangul.system_alternatives().contains(&"Malgun Gothic"));
         assert!(Script::Arabic.system_alternatives().is_empty());

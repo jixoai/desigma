@@ -71,6 +71,7 @@ const result = JSON.parse(await document.modelContext.executeTool(tool, {}));
 | Layout, vectors, components, variants, ordering, text | `execute_action`, `apply_commands`, `get_node_templates`, `get_editing_guide`, `create_instance`, `inspect_components` |
 | Visual previews without download events | `render_preview` returns PNG dimensions and a data URL from the export worker |
 | Prototype verification | `inspect_prototype`, `test_prototype` (scratch player, actual hit tests and outcome assertions) |
+| Text and font diagnostics | `inspect_fonts` (actual renderer families and primary substitutions), `inspect_text` (glyph bounds, sampled occlusion/clipping, simple contrast and required copy) |
 | Variables, shared styles, prototype flows/devices, comments, board sessions, guides | Native command batches and variable import/export |
 | Viewport and selection | `get_view`, `set_view`, `get_selection`, `select_nodes` |
 | Motion and presentation | Keyframes, presets, timeline, `present`, animation export |
@@ -95,7 +96,7 @@ const instance = await desigma.call('desigma_create_instance', {
 });
 const preview = await desigma.call('desigma_render_preview', { node_id: frameId, scale: 1 });
 // Inspect preview.data_url as an image; no download event is emitted or needed.
-const inspection = await desigma.call('desigma_inspect_prototype', {});
+const inspection = await desigma.call('desigma_inspect_prototype', { probe_node_ids: controlLabelIds });
 const result = await desigma.call('desigma_test_prototype', {
   start_node_id: frameId,
   steps: [{ node_id: instance.node_id, expect_frame_id: confirmationId, expect_texts: ['预约已登记', '¥536'] }]
@@ -103,6 +104,14 @@ const result = await desigma.call('desigma_test_prototype', {
 ```
 
 Prototype inspection returns named reaction sources/destinations, three sampled click points, and warnings for missed hit targets, small targets, invalid destinations, and Back actions at a flow start. These are diagnostics, not proof that a flow works. Put button text/icons inside the reactive container: a sibling label can cover an otherwise clickable background.
+
+Pass `probe_node_ids` for visible control labels and icons, including those without their own reactions. This checks a return label beside an arrow as well as the arrow itself. Nested controls are reported as `equivalent_child` or `nested_control`; a child button legitimately receiving the click does not produce a blocked-click warning. Component and prototype reports provide `ok`, `warning_count` and `warnings`; there is no `issues` field. `ok` means no reported diagnostics within the stated scope, not complete acceptance.
+
+Use `inspect_fonts` before experimenting with typography: it reads the WASM renderer's available families and primary substitutions, whereas `document.fonts` describes the DOM. Script fallback can still supply individual glyphs. After loading finishes, run `inspect_text` on each frame with any `required_texts`. It checks rendered glyph bounds, possible clipping/covering by opaque rectangles, and contrast on simple solid colors. A successful prototype text assertion only establishes that node content exists; a later card can still cover that text. These bounded diagnostics complement preview inspection and manual verification of dates, prices and business promises.
+
+Downloaded faces retain their catalog family aliases in both the canvas and export worker, even when the binary has a legacy family name such as `Noto Sans SC Thin`. Noto Serif SC/JP/KR use the matching script subset; obsolete Fontsource Latin-only cache entries are replaced on demand. Font registration invalidates cached glyph outlines and caret geometry across rendering threads without changing the document or font files.
+
+`allocate_node_ids` returns a `node_ids` array; `apply_commands` returns `inserted_roots` with real IDs/names/parents. Use these references for subsequent edits and batch independent commands. `save_to_project` creates a new file and returns its `file_id`, `path` and `next_save` call; reuse that save call instead of creating duplicate library files. Exports create missing destination directories automatically, while `/downloads` remains private to the exporting tab.
 
 Native JSON omits empty prototype properties. When adding the first reaction to a node, initialize `node.prototype` with `{ reactions: [], overflow: 'None', fixed_children: [], videos: [] }` before assigning reactions. An Update must contain the full node read from `get_node`.
 

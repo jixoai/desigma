@@ -40,8 +40,9 @@ pub fn inspect_components(doc: &Document) -> Value {
             }
         }
     }
-    json!({"master_count":master_count,"instance_count":instance_count,"unresolved_master_count":unresolved,
-        "masters":masters,"instances":instances,"warnings":warnings,"truncated":instance_count>1000||master_count>1000||warnings.len()>=1000,
+    let truncated = instance_count > 1000 || master_count > 1000 || warnings.len() >= 1000;
+    json!({"ok":warnings.is_empty()&&!truncated,"warning_count":warnings.len(),"master_count":master_count,"instance_count":instance_count,"unresolved_master_count":unresolved,
+        "masters":masters,"instances":instances,"warnings":warnings,"truncated":truncated,
         "verification":"Checks master/source references, not visual equivalence. Preserve masters when rebuilding a component sheet; detach intentionally if a reusable relationship is no longer wanted."})
 }
 
@@ -91,6 +92,16 @@ pub fn create_instance(app: &mut App, ctx: &egui::Context, args: Value) -> Resul
     let comp = app.doc.get(a.component_id).ok_or("Unknown component_id")?;
     if !matches!(comp.kind, NodeKind::Component(_)) {
         return Err("component_id must identify a Component master, not a set, frame or instance".into());
+    }
+    let parent = app
+        .doc
+        .get(a.parent_id)
+        .ok_or_else(|| format!("parent_id {} does not exist; use returned IDs or list_nodes, not offsets from allocated IDs", a.parent_id.0))?;
+    if !parent.kind.is_container() {
+        return Err(format!("parent_id {} ({:?}) is not a container", a.parent_id.0, parent.name));
+    }
+    if a.parent_id == a.component_id || app.doc.is_ancestor(a.component_id, a.parent_id) {
+        return Err("parent_id is inside the component master; choose a destination outside its subtree".into());
     }
     let definitions = prop_defs(&app.doc, a.component_id);
     let mut values = Vec::new();

@@ -77,7 +77,7 @@ impl FontLoader {
         let loaded = report.loaded.len();
         for f in report.loaded {
             desigma_export::register_font(f.data.clone());
-            desigma_render::register_font(f.data);
+            desigma_render::register_font_family(f.data, Some(f.family));
         }
         let failed = report.failed.iter().map(|(req, err)| format!("{} {}: {err}", req.family, req.weight)).collect();
         let failed_requests = report.failed.into_iter().map(|(req, _)| req).collect();

@@ -49,14 +49,34 @@ fn has_back(actions: &[Action]) -> bool {
     actions.iter().any(|a| matches!(a, Action::Back))
 }
 
+pub fn inspect_schema() -> Value {
+    json!({"page_id":{"type":"integer","minimum":1},
+        "probe_node_ids":{"type":"array","maxItems":100,"items":{"type":"integer","minimum":1},
+        "description":"Explicit visible control text/icons to test, including nodes without reactions. Their centers must hit a click handler. Use this to catch a return label placed beside, instead of inside, its button."}})
+}
+
+fn same_navigation(doc: &Document, a: NodeId, b: NodeId) -> bool {
+    let reactions = |id| doc.get(id).map(|n| n.prototype.reactions.iter().filter(|r| r.trigger == Trigger::OnClick).collect::<Vec<_>>()).unwrap_or_default();
+    let a = reactions(a);
+    let b = reactions(b);
+    // Do not equate source-dependent actions (overlay, variables, Back, etc.).
+    !a.is_empty() && a == b && a.iter().all(|r| !r.actions.is_empty() && r.actions.iter().all(|a| matches!(a, Action::Navigate { .. })))
+}
+
 pub fn inspect(app: &App, args: Value) -> Result<Value, String> {
     let page = args.get("page_id").map(|v| v.as_u64().map(NodeId).ok_or("page_id must be an integer")).transpose()?;
     if page.is_some_and(|p| !app.doc.pages.contains(&p)) {
         return Err("Unknown page_id".into());
     }
     let doc = &app.doc;
+    let probes: Vec<NodeId> =
+        args.get("probe_node_ids").map(|v| serde_json::from_value(v.clone())).transpose().map_err(|e| format!("probe_node_ids: {e}"))?.unwrap_or_default();
+    if probes.len() > 100 || probes.iter().any(|id| doc.get(*id).is_none()) {
+        return Err("probe_node_ids must contain at most 100 existing node IDs".into());
+    }
     let mut warnings = Vec::new();
     let mut interactions = Vec::new();
+    let mut target_samples = Vec::new();
     // One clone for the whole inspection. Membership checks stay logarithmic
     // even for documents with many pages/frames.
     let frames =
@@ -85,11 +105,13 @@ pub fn inspect(app: &App, args: Value) -> Result<Value, String> {
                     let p = Vec2::new(bounds.x + bounds.w * x, bounds.y + bounds.h * y);
                     let hit = hit_layer(&player.doc, frame, p, Vec2::ZERO);
                     let reaction = hit.and_then(|id| player.find_reactive(id, When::Click));
-                    samples.push(
-                        json!({"x":p.x,"y":p.y,"hit":identity(&player.doc,hit),"reaction":identity(&player.doc,reaction),"matches":reaction==Some(node.id)}),
-                    );
+                    let nested = reaction.is_some_and(|id| player.doc.is_ancestor(node.id, id));
+                    let equivalent = nested && reaction.is_some_and(|id| same_navigation(&player.doc, node.id, id));
+                    samples.push(json!({"x":p.x,"y":p.y,"hit":identity(&player.doc,hit),"reaction":identity(&player.doc,reaction),
+                            "matches":reaction==Some(node.id)||equivalent,"reachable":reaction==Some(node.id)||nested,
+                            "ownership":if reaction==Some(node.id){"self"}else if equivalent{"equivalent_child"}else if nested{"nested_control"}else{"miss"}}));
                 }
-                if samples.iter().any(|s| s["matches"] == false) {
+                if samples.iter().any(|s| s["reachable"] == false) {
                     warnings.push(json!({"code":"click_sample_misses","node_id":node.id,"name":node.name,"hint":"Inspect sampled hits. Text/icons should be children of the reactive container. Samples outside the initial viewport can also miss."}));
                 }
                 if bounds.w < 44.0 || bounds.h < 44.0 {
@@ -102,15 +124,38 @@ pub fn inspect(app: &App, args: Value) -> Result<Value, String> {
             interactions.push(json!({"node":identity(doc,Some(node.id)),"frame":identity(doc,Some(frame)),"bounds":bounds,
                 "reactions":node.prototype.reactions,"destinations":dests.iter().map(|id|identity(doc,Some(*id))).collect::<Vec<_>>(),"click_samples":samples}));
         }
+        for id in &probes {
+            let frame = player.top_frame_of(*id).filter(|f| frames.contains(f));
+            let (point, hit) = frame
+                .map(|frame| {
+                    let r = rect_in_frame(&player.doc, *id, frame);
+                    let p = Vec2::new(r.x + r.w / 2.0, r.y + r.h / 2.0);
+                    (Some(p), hit_layer(&player.doc, frame, p, Vec2::ZERO))
+                })
+                .unwrap_or_default();
+            let reaction = hit.and_then(|id| player.find_reactive(id, When::Click));
+            let covered = hit.is_some_and(|hit| hit == *id || player.doc.is_ancestor(*id, hit));
+            let ok = covered && reaction.is_some();
+            if !ok {
+                warnings.push(json!({"code":if !covered{"probe_target_obscured"}else{"probe_target_not_clickable"},
+                    "node_id":id,"name":doc.get(*id).map(|n|&n.name),"hit":identity(&player.doc,hit),
+                    "hint":"Probe the visible label/icon itself. Put the complete control inside its reactive container; check visibility and viewport."}));
+            }
+            target_samples.push(json!({"node":identity(doc,Some(*id)),"frame":identity(doc,frame),"point":point,
+                "hit":identity(&player.doc,hit),"reaction":identity(&player.doc,reaction),"ok":ok}));
+        }
+    } else if !probes.is_empty() {
+        return Err("No visible prototype frames in the requested scope".into());
     }
     for flow in doc.flows.iter().filter(|f| page.is_none_or(|p| p == f.page)) {
         if !top_level_frames(doc, flow.page).contains(&flow.start) {
             warnings.push(json!({"code":"invalid_flow_start","flow":flow.name,"start":flow.start,"page":flow.page}));
         }
     }
-    Ok(json!({"flows":doc.flows.iter().filter(|f|page.is_none_or(|p|p==f.page)).collect::<Vec<_>>(),
-        "interactions":interactions,"warnings":warnings,"limit":1000,"truncated":interactions.len()>=1000,
-        "verification":"Static diagnostics and sampled hits only. Run test_prototype with expected frames/text for all choices and returns; inspect render_preview for clipping and appearance."}))
+    Ok(json!({"ok":warnings.is_empty()&&interactions.len()<1000,"warning_count":warnings.len(),
+        "flows":doc.flows.iter().filter(|f|page.is_none_or(|p|p==f.page)).collect::<Vec<_>>(),
+        "interactions":interactions,"target_samples":target_samples,"warnings":warnings,"limit":1000,"truncated":interactions.len()>=1000,
+        "verification":"ok means no reported diagnostics, not complete acceptance. Reactive descendants are identified as nested controls, not blocked clicks. Probe all visible control labels/icons explicitly; run test_prototype for outcomes and inspect_text/render_preview for appearance."}))
 }
 
 #[derive(Deserialize)]

@@ -234,7 +234,14 @@ mod tests {
 
     #[test]
     fn cjk_short_family_suffixes_select_script_glyphs_not_latin_or_numbered_slices() {
-        for (family, subset) in [("Noto Sans SC", "chinese-simplified"), ("Noto Sans JP", "japanese"), ("Noto Sans KR", "korean")] {
+        for (family, subset) in [
+            ("Noto Sans SC", "chinese-simplified"),
+            ("Noto Sans JP", "japanese"),
+            ("Noto Sans KR", "korean"),
+            ("Noto Serif SC", "chinese-simplified"),
+            ("Noto Serif JP", "japanese"),
+            ("Noto Serif KR", "korean"),
+        ] {
             let variant = serde_json::json!({
                 "latin": {"url": {"ttf": "https://cdn.test/latin.ttf"}},
                 "4": {"url": {"ttf": "https://cdn.test/4.ttf"}},
